@@ -1,4 +1,9 @@
-*.py[cod]
+*.py[cod~]
+# Ipython notebook
+.ipynb_checkpoints
+
+# backup hdf files
+.back
 
 # C extensions
 *.so
