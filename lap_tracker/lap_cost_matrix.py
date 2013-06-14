@@ -36,23 +36,23 @@ def get_lapmat(pos0, pos1, max_disp=1000.):
                        num_in + num_out))
     costmat = get_costmat(pos0, pos1, max_disp)
     m_costmat = ma.masked_invalid(costmat)
-    lapmat[:num_out, :num_in] = costmat
+    lapmat[:num_in, :num_out] = costmat
     if np.all(np.isnan(costmat)):
         birthcost = deathcost = 1.
     else:
         birthcost = deathcost = np.percentile(m_costmat.compressed(), 90)
 
-    lapmat[num_out:, :num_in] = get_deathmat(pos0, deathcost)
-    lapmat[:num_out, num_in:] = get_birthmat(pos1, birthcost)
+    lapmat[num_in:, :num_out] = get_birthmat(pos1, birthcost)
+    lapmat[:num_in, num_out:] = get_deathmat(pos0, deathcost)
 
     fillvalue = m_costmat.max() * 1.05
-    lapmat[num_out:, num_in:] = get_lowerright(costmat, fillvalue)
+    lapmat[num_in:, num_out:] = get_lowerright(costmat, fillvalue)
 
     return lapmat
 
 def get_costmat(pos0, pos1, max_disp):
 
-    distances = cdist(pos1, pos0)
+    distances = cdist(pos0, pos1)
     distances[distances > max_disp] = np.nan
     return distances**2
 
