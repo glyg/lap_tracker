@@ -11,7 +11,7 @@ import warnings
 from .lap_cost_matrix import get_lapmat, get_lap_args, get_cmt_mat
 from .lapjv import lapjv
 
-class LAPTracker():
+class LAPTracker(object):
 
     def __init__(self, track_df, hdfstore,
                  x_scale=1., y_scale=1., z_scale=1.):
@@ -90,15 +90,15 @@ class LAPTracker():
                           % (t0, t1), RuntimeWarning)
             for n in range(pos1.shape[0]):
                 new_label = self.track['new_label'].max() + 1
-                self.track.xs(t1)['new_label'][n] = new_label
+                self.track.xs(t1)['new_label'].iloc[n] = new_label
             return
         for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
                 new_label = self.track['new_label'].max() + 1
             else:
-                new_label  = self.track.xs(t0)['new_label'][idx_in]
-            self.track.xs(t1)['new_label'][n] = new_label
+                new_label  = self.track.xs(t0)['new_label'].iloc[idx_in]
+            self.track.xs(t1)['new_label'].iloc[n] = new_label
     
     def predict_positions(self, t0, t1, ndims=3):
         """
@@ -106,7 +106,7 @@ class LAPTracker():
         ## Possible values for corr
         # 'absolute_exponential', 'squared_exponential',
         # 'generalized_exponential', 'cubic', 'linear'
-        corr = 'absolute_exponential'
+        corr = 'squared_exponential'
         regr = 'quadratic'
         theta0 = 0.1
         gp_kwargs = {'corr':corr,
@@ -120,33 +120,24 @@ class LAPTracker():
         if np.where(self.times == t1) < 3:
             return pos0, mse0 * 0.
         for lbl in self.labels:
-            
             segment = self.get_segment(lbl).loc[:t0]
             if segment.shape[0] == 0:
                 continue
             if not t0 in segment.index:
                 continue
-            times = np.atleast_2d(segment.index.get_level_values(0))
-            if len(times) < 3:
+            times = segment.index.get_level_values(0)
+            if times.size < 3:
                 pos = segment[coordinates].loc[t0]
                 mse = pos * 0
             else:
-                pred = [self._predict_coordinate(segment, coord, times,
-                                                 t1, **gp_kwargs)
+                pred = [_predict_coordinate(segment, coord, times,
+                                            t1, **gp_kwargs)
                         for coord in coordinates]
                 pos = [p[0] for p in pred]
                 mse = [p[1] for p in pred]
             pos0.ix[lbl] = pos
             mse0.ix[lbl] = mse
         return pos0, mse0
-
-    def _predict_coordinate(self, segment, coord, times, t1, **kwargs):
-
-        prev = segment[coord]
-        nugget = prev.std()**2 
-        gp = GaussianProcess(nugget=nugget, **kwargs)
-        gp.fit(times, prev)
-        return gp.predict(t1, eval_MSE=True)
 
     def remove_shorts(self, min_length=3):
         labels = self.track.index.get_level_values(1).unique()
@@ -192,4 +183,11 @@ class LAPTracker():
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
-    
+def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
+
+    times = np.atleast_2d(times).T
+    prev = segment[coord]
+    nugget = (sigma / (prev + sigma))**2 
+    gp = GaussianProcess(nugget=nugget, **kwargs)
+    gp.fit(times, prev)
+    return gp.predict(t1, eval_MSE=True)
