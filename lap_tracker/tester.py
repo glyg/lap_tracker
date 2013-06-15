@@ -15,22 +15,23 @@ DEFAULT_PARAMS = {'n_part':5,
                   'p_disapear':1e-8,
                   'sampling':10,
                   'max_disp':0.1,
-                  'window_gap':10}
+                  'window_gap':10,
+                  'gp_corr':'squared_exponential',
+                  'gp_regr':'quadratic',
+                  'gp_theta0':0.1}
 
-def test_tracker(params):
+def test_tracker(params=DEFAULT_PARAMS):
 
     n_part = params['n_part']
     n_times = params['n_times']
     noise = params['noise']
     p_disapear = params['p_disapear']
     sampling = params['sampling']
-    max_disp = params['max_disp']
-    window_gap = params['window_gap']
-    
     data, teststore = make_data(n_part, n_times, noise,
                                 p_disapear, sampling)
-    test_track = LAPTracker(data, teststore)
-    test_track.get_track(max_disp, window_gap)
+
+    test_track = LAPTracker(data, teststore, params)
+    test_track.get_track()
     scores = {}
     for label in test_track.labels:
         segment = test_track.get_segment(label)
