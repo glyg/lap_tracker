@@ -6,6 +6,7 @@ import matplotlib.pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.gaussian_process import GaussianProcess
+from sklearn.decomposition import PCA
 import warnings
 
 from .lap_cost_matrix import get_lapmat, get_lap_args, get_cmt_mat
@@ -68,8 +69,12 @@ class LAPTracker(object):
         self.store.close()
 
     def close_merge_split(self):
-        segments = [segment[['x', 'y']]
-                    for segment in self.segments()]
+        if self.ndims == 2:
+            segments = [segment[['x', 'y']]
+                        for segment in self.segments()]
+        elif self.ndims == 3:
+            segments = [segment[['x', 'y', 'z']]
+                        for segment in self.segments()]
         lapmat = get_cmt_mat(segments, self.max_disp, self.window_gap)
         idxs_in, idxs_out, costs = get_lap_args(lapmat)
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
@@ -142,7 +147,7 @@ class LAPTracker(object):
                 mse = pos * 0
             else:
                 pred = [_predict_coordinate(segment, coord, times,
-                                            t1, self.sigma,
+                                            t0, self.sigma,
                                             **self.gp_kwargs)
                         for coord in coordinates]
                 pos = [p[0] for p in pred]
@@ -195,6 +200,24 @@ class LAPTracker(object):
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
+    def do_pca(self, ndims=3):
+        
+        pca = PCA()
+        if ndims == 2:
+            coords = ['x', 'y']
+            pca_coords = ['x_pca', 'y_pca']
+        elif ndims == 3:
+            coords = ['x', 'y', 'z']
+            pca_coords = ['x_pca', 'y_pca', 'z_pca']
+        rotated = pca.fit_transform(self.track[coords])
+        for n, coord in enumerate(pca_coords):
+            self.track[coord] = rotated[:, n]
+        center = self.track[pca_coords].mean(level=0)
+        center = center.reindex(self.track.index, level=0)
+        for coord in pca_coords:
+            self.track[coord] -= center[coord]
+
+        
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T
