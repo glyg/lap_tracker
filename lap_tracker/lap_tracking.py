@@ -37,7 +37,9 @@ class LAPTracker(object):
                     self.gp_kwargs[key[3:]] = value
                 else:
                     self.__setattr__(key, value)
-                
+        self.dist_function = np.square
+        
+                    
     @property
     def times(self):
         '''Unique values of the level 0 index of `self.track`'''
@@ -47,7 +49,7 @@ class LAPTracker(object):
     def labels(self):
         '''Unique values of the level 1 index of `self.track`'''
         return self.track.index.get_level_values(1).unique()
-        
+
     def get_track(self, **kwargs):
 
         for key, value in kwargs.items():
@@ -63,19 +65,39 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
-        self.close_merge_split()
         self.store.open()
         self.store['sorted'] = self.track
         self.store.close()
 
+    def reverse_track(self):
+        
+        self.track['rev_labels'] = self.track.index.get_level_values(1)
+        self.track['rev_times'] = self.track.index.get_level_values(0)
+        self.track['rev_times'] = (self.track['rev_times'].iloc[-1]
+                                   - self.track['rev_times'])
+        self.track = self.track.iloc[::-1]        
+        self.track.set_index('rev_times', append=True, inplace=True,
+                             drop='True')
+        self.track.reset_index(level='time_stamp', drop=True, inplace=True)
+        self.track = self.track.swaplevel(0, 1, axis=0)
+        self.track.index.names[0] = 'time_stamp'
+
+        
     def close_merge_split(self):
+        
         if self.ndims == 2:
             segments = [segment[['x', 'y']]
                         for segment in self.segments()]
         elif self.ndims == 3:
             segments = [segment[['x', 'y', 'z']]
                         for segment in self.segments()]
-        lapmat = get_cmt_mat(segments, self.max_disp, self.window_gap)
+        try:
+            intensities = [segment['I'] for segment in self.segments()]
+        except KeyError:
+            intensities = [(segment['x'] + 1) / (segment['x'] + 1)
+                           for segment in self.segments()]
+        lapmat = get_cmt_mat(segments, intensities,
+                             self.max_disp, self.window_gap)
         idxs_in, idxs_out, costs = get_lap_args(lapmat)
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
 
@@ -99,14 +121,17 @@ class LAPTracker(object):
         self.track.index.names[1] = 'label'
 
     def position_track(self, t0, t1):
-        
-        if self.ndims == 3:
-            pos1 = self.track.xs(t1)[['x', 'y', 'z']]
-        elif self.ndims == 2:
-            pos1 = self.track.xs(t1)[['x', 'y']]
-        pos0, mse0 = self.predict_positions(t0, t1)
 
-        lapmat = get_lapmat(pos0, pos1, self.max_disp * (t1 - t0))
+        coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
+
+        pos1 = self.track.xs(t1)[coordinates]
+        if self.predict:
+            pos0, mse0 = self.predict_positions(t0, t1)
+        else:
+            pos0 = self.track.xs(t0)[coordinates]
+        lapmat = get_lapmat(pos0, pos1,
+                            self.max_disp * (t1 - t0),
+                            self.dist_function)
         idxs_in, idxs_out, costs = get_lap_args(lapmat)
         try:
             in_links, out_links = lapjv(idxs_in, idxs_out, costs)
@@ -142,7 +167,7 @@ class LAPTracker(object):
             if not t0 in segment.index:
                 continue
             times = segment.index.get_level_values(0)
-            if times.size < 3 or not self.predict:
+            if times.size < 3:
                 pos = segment[coordinates].loc[t0]
                 mse = pos * 0
             else:
