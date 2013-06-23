@@ -44,7 +44,6 @@ def get_lapmat(pos0, pos1, max_disp=1000., dist_function=np.square):
         birthcost = deathcost = 1.
     else:
         birthcost = deathcost = np.percentile(m_costmat.compressed(), 90)
-
     lapmat[num_in:, :num_out] = get_birthmat(pos1, birthcost)
     lapmat[:num_in, num_out:] = get_deathmat(pos0, deathcost)
 
@@ -114,23 +113,23 @@ def get_splitting(segments, intensities, max_disp0, window_gap=5):
         for j, (segment1, intensities1) in enumerate(zip(segments,
                                                          intensities)):
             times1 = segment1.index.get_level_values(0)
-            if not (times1[0] < first_time < times1[-1]):
+            if not (times1[0] < first_time <= times1[-1]):
                 continue
-            junction = np.where(times1 < first_time)[0][0]
-            middle_time = times1[junction]
-            next_time = times1[junction + 1]
-            delta_t = first_time - middle_time
+            split = np.where(times1 < first_time)[0][-1]
+            split_time = times1[split]
+            next_time = times1[split + 1]
+            delta_t = first_time - split_time
             if delta_t > window_gap:
                 continue
-            middle = segment1.loc[middle_time]
-            sqdist01 = ((first - middle)**2).sum()
-            if sqdist01 > np.sqrt(delta_t * max_disp0):
+            split = segment1.loc[split_time]
+            sqdist01 = ((first - split)**2).sum()
+            if sqdist01 > (delta_t * max_disp0)**2:
                 continue
-            rho01 = (intensities1.loc[middle_time]
+            rho01 = (intensities1.loc[split_time]
                      / (intensities1.loc[next_time]
                         + intensities0.loc[first_time]))
             weight = sqdist01 * rho01 if rho01 > 1. else sqdist01 * rho01**-2
-            split_dic[i, (j, middle_time)] =  weight
+            split_dic[i, (j, split_time)] =  weight
     return split_dic
 
 def get_merging(segments, intensities, max_disp0, window_gap):
@@ -143,30 +142,32 @@ def get_merging(segments, intensities, max_disp0, window_gap):
         for j, (segment1, intensities1) in enumerate(zip(segments,
                                                          intensities)):
             times1 = segment1.index.get_level_values(0)
-            if not (times1[0] < last_time < times1[-1]):
+            if not (times1[0] <= last_time < times1[-1]):
                 continue
             junction = np.where(times1 > last_time)[0][0]
-            middle_time = times1[junction]
+            merge_time = times1[junction]
             prev_time = times1[junction -1]
-            delta_t = last_time - middle_time
+            delta_t = last_time - merge_time
             if delta_t > window_gap:
                 continue
-            middle = segment1.loc[middle_time]
-            sqdist01 = ((last - middle)**2).sum()
-            if sqdist01 > np.sqrt(delta_t * max_disp0):
+            merge = segment1.loc[merge_time]
+            sqdist01 = ((last - merge)**2).sum()
+            if sqdist01 > (delta_t * max_disp0)**2:
                 continue
-            rho01 = (intensities1.loc[middle_time]
+            rho01 = (intensities1.loc[merge_time]
                      / (intensities1.loc[prev_time]
                         + intensities0.loc[last_time]))
             weight = sqdist01 * rho01 if rho01 > 1. else sqdist01 * rho01**-2
-            merge_dic[i, (j, middle_time)] =  weight
+            merge_dic[i, (j, merge_time)] =  weight
     return merge_dic
 
 def get_alt_merge_split(segments, seeds, intensities,
                         split_dic, merge_dic):
     
     alt_merge_mat = np.zeros((len(segments), len(seeds))) * np.nan
-    alt_split_mat = alt_merge_mat.T
+    alt_split_mat = alt_merge_mat.copy().T
+    merge_seeds = [key[1] for key in merge_dic.keys()]
+    split_seeds = [key[1] for key in split_dic.keys()]
     avg_disps = [np.sqrt((segment.diff().dropna()*2).sum(axis=1))
                  for segment in segments]
     avg_disps = np.array([
@@ -174,28 +175,34 @@ def get_alt_merge_split(segments, seeds, intensities,
         for segment in segments])
     global_mean = avg_disps[np.isfinite(avg_disps)].mean()
     avg_disps[np.isnan(avg_disps)] = global_mean
+    merge_seeds = seeds
+    split_seeds = seeds
     for n, seed in enumerate(seeds):
         seg_index = seed[0]
         pos_index = seed[1]
         #intensity previous to merge/split
         intensity = intensities[seg_index].loc[:pos_index]
         if intensity.shape[0] == 1:
-            if merge_dic.has_key(seed):
+            if seed in merge_seeds:
                 alt_merge_mat[seg_index, n] = avg_disps[seg_index]
-            if split_dic.has_key(seed):
+            if seed in split_seeds:
                 alt_split_mat[n, seg_index] = avg_disps[seg_index]
         else:
             i0, i1 = intensity.iloc[-2:]
             if i1 / i0 > 1 :
-                alt_merge_mat[seg_index, n] = (avg_disps[seg_index]
-                                               * (i1 / i0))
-                alt_split_mat[n, seg_index] = (avg_disps[seg_index]
-                                               * (i0 / i1)**-2)
+                if seed in merge_seeds:
+                    alt_merge_mat[seg_index, n] = (avg_disps[seg_index]
+                                                   * (i1 / i0))
+                if seed in split_seeds:
+                    alt_split_mat[n, seg_index] = (avg_disps[seg_index]
+                                                   * (i0 / i1)**-2)
             else:
-                alt_merge_mat[seg_index, n] = (avg_disps[seg_index]
-                                               * (i1 / i0)**-2)
-                alt_split_mat[n, seg_index] = (avg_disps[seg_index]
-                                               * (i0 / i1))
+                if seed in merge_seeds:
+                    alt_merge_mat[seg_index, n] = (avg_disps[seg_index]
+                                                   * (i1 / i0)**-2)
+                if seed in split_seeds:
+                    alt_split_mat[n, seg_index] = (avg_disps[seg_index]
+                                                   * (i0 / i1))
     return alt_merge_mat, alt_split_mat
 
             
@@ -209,7 +216,8 @@ def get_initiating(segments, init_cost):
     init_mat[init_mat == 0] = np.nan
     return init_mat
 
-def get_cmt_mat(segments, intensities, max_disp0, window_gap=5):
+def get_cmt_mat(segments, intensities,
+                max_disp0, window_gap=5, gap_close_only=True):
     
     n_segments = len(segments)
     gc_mat = get_gap_closing(segments, max_disp0, window_gap)
@@ -250,12 +258,38 @@ def get_cmt_mat(segments, intensities, max_disp0, window_gap=5):
     if np.all(np.isnan(lapmat)):
         terminate_cost = init_cost = 1.
     else:
-        terminate_cost = init_cost = np.percentile(m_lapmat.compressed(), 90)
+        terminate_cost = init_cost = np.percentile(m_lapmat.compressed(), 99)
     lapmat[sm_stop:, :n_segments] = get_terminating(segments,
                                                     terminate_cost)
     lapmat[:n_segments, sm_stop:] = get_initiating(segments,
                                                    init_cost)
     fillvalue = m_lapmat.max() * 1.05
     lapmat[sm_stop:, sm_stop:] = get_lowerright(gc_mat, fillvalue)
+
+    # lapmat[:n_segments, sm_start:sm_stop][
+    #     np.isfinite(split_mat.T)] = fillvalue
+    # lapmat[sm_start:sm_stop, :n_segments][
+    #     np.isfinite(merge_mat.T)] = fillvalue
+    # lapmat[sm_start:sm_stop, sm_stop:][
+    #     np.isfinite(alt_merge_mat.T)] = fillvalue
+    # lapmat[sm_stop:, sm_start:sm_stop][
+    #     np.isfinite(alt_split_mat.T)] = fillvalue
+    for key, weight in split_dic.items():
+        i = key[0] + sm_stop
+        j = key[1][0] + sm_stop
+        lapmat[j, i] = fillvalue
+    for key, weight in merge_dic.items():
+        i = key[0] + sm_stop
+        j = key[1][0] + sm_stop
+        lapmat[j, i] = fillvalue
+
+    if gap_close_only:
+        red_lapmat = np.zeros((n_segments * 2, n_segments *2))
+        red_lapmat[:n_segments, :n_segments] = lapmat[:n_segments, :n_segments]
+        red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:, :n_segments]
+        red_lapmat[:n_segments, n_segments:] = lapmat[:n_segments, sm_stop:]
+        red_lapmat[:n_segments, :n_segments] = lapmat[sm_stop:, sm_stop:]
+        return red_lapmat
+    
     return lapmat
 
