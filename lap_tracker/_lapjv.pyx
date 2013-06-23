@@ -33,14 +33,22 @@ import_array()
 __eps = np.sqrt(np.finfo(np.float64).eps)
 
 def reduction_transfer(
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] ii,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] j,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] idx,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] count,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] x,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] u,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] v,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] c):
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] ii,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] j,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] idx,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] count,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] x,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] u,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] v,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] c):
     '''Perform the reduction transfer step from the Jonker-Volgenant algorithm
     
     The data is input in a ragged array in terms of "i" structured as a
@@ -112,16 +120,26 @@ def reduction_transfer(
         
 def augmenting_row_reduction(
     int n,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] ii,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] jj,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] idx,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] count,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] x,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] y,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] u,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] v,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] c):
-    '''Perform the augmenting row reduction step from the Jonker-Volgenaut algorithm
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] ii,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] jj,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] idx,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] count,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] x,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] y,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] u,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] v,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] c):
+    '''Perform the augmenting row reduction step from the
+    Jonker-Volgenaut algorithm
     
     n - the number of i and j in the linear assignment problem
     ii - the unassigned i
@@ -136,6 +154,7 @@ def augmenting_row_reduction(
     c - the cost for each entry.
     
     returns a numpy array of the new free choices.
+
     '''
     free = np.ascontiguousarray(np.zeros(np.max(y)+1, np.uint32), np.uint32)
     cdef:
@@ -231,15 +250,24 @@ def augmenting_row_reduction(
 
 def augment(
     int n,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] ii,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] jj,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] idx,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] count,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] x,
-    np.ndarray[dtype=np.uint32_t,  ndim=1, negative_indices=False, mode='c'] y,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] u,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] v,
-    np.ndarray[dtype=np.float64_t, ndim=1, negative_indices=False, mode='c'] c):
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] ii,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] jj,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] idx,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] count,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] x,
+    np.ndarray[dtype=np.uint32_t,  ndim=1,
+               negative_indices=False, mode='c'] y,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] u,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] v,
+    np.ndarray[dtype=np.float64_t, ndim=1,
+               negative_indices=False, mode='c'] c):
     '''Perform the augmentation step to assign unassigned i and j
     
     n - the # of i and j, also the marker of unassigned x and y

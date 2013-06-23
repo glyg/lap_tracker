@@ -71,7 +71,6 @@ class LAPTracker(object):
 
     def reverse_track(self):
         
-        self.track['rev_labels'] = self.track.index.get_level_values(1)
         self.track['rev_times'] = self.track.index.get_level_values(0)
         self.track['rev_times'] = (self.track['rev_times'].iloc[-1]
                                    - self.track['rev_times'])
@@ -97,7 +96,8 @@ class LAPTracker(object):
             intensities = [(segment['x'] + 1) / (segment['x'] + 1)
                            for segment in self.segments()]
         lapmat = get_cmt_mat(segments, intensities,
-                             self.max_disp, self.window_gap)
+                             self.max_disp, self.window_gap,
+                             gap_close_only=True)
         idxs_in, idxs_out, costs = get_lap_args(lapmat)
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
 
