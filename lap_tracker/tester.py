@@ -31,16 +31,23 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params)
-    test_track.get_track()
+    test_track.dist_function = lambda x:x
+    test_track.get_track(predict=False)
+    # test_track.reverse_track()
+    # test_track.get_track(predict=True)
+    # test_track.reverse_track()
+    # test_track.get_track(predict=True)
+    test_track.close_merge_split()
     scores = {}
     for label in test_track.labels:
         segment = test_track.get_segment(label)
         good = segment['good_lbls']
         bc = np.bincount(good.values.astype(np.int))
         scores[label] = bc.max()/bc.sum() * 100
-        print('%i : %.3f' % (label, scores[label]))
     global_score = np.mean([score for score in scores.values()])
     print('Global: %.3f' % global_score)
+    print('Number of individual trajectories: %i'
+          % test_track.labels.shape[0])
     return scores, test_track
 
     
