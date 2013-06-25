@@ -119,7 +119,9 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
+        return lapmat
 
+        
     def position_track(self, t0, t1):
 
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']

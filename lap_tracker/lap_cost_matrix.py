@@ -36,8 +36,8 @@ def get_lapmat(pos0, pos1, max_disp=1000., dist_function=np.square):
         raise ValueError('''Only 2d and 3d data are supported''')
 
     lapmat = np.zeros((num_in + num_out,
-                       num_in + num_out))
-    costmat = get_costmat(pos0, pos1, max_disp, dist_function)
+                       num_in + num_out)) * np.nan
+    costmat, p90 = get_costmat(pos0, pos1, max_disp, dist_function)
     m_costmat = ma.masked_invalid(costmat)
     lapmat[:num_in, :num_out] = costmat
     if np.all(np.isnan(costmat)):
@@ -46,8 +46,8 @@ def get_lapmat(pos0, pos1, max_disp=1000., dist_function=np.square):
         birthcost = deathcost = np.percentile(m_costmat.compressed(), 90)
     lapmat[num_in:, :num_out] = get_birthmat(pos1, birthcost)
     lapmat[:num_in, num_out:] = get_deathmat(pos0, deathcost)
-
-    fillvalue = m_costmat.max() * 1.05
+    m_lapmat = ma.masked_invalid(lapmat)
+    fillvalue = m_lapmat.max() * 1.05
     lapmat[num_in:, num_out:] = get_lowerright(costmat, fillvalue)
 
     return lapmat
@@ -55,8 +55,9 @@ def get_lapmat(pos0, pos1, max_disp=1000., dist_function=np.square):
 def get_costmat(pos0, pos1, max_disp, dist_function=np.square):
 
     distances = cdist(pos0, pos1)
+    p90 = np.percentile(distances, 90)
     distances[distances > max_disp] = np.nan
-    return dist_function(distances)
+    return dist_function(distances), dist_function(p90)
 
 def get_deathmat(pos0, deathcost):
 
@@ -94,11 +95,11 @@ def get_gap_closing(segments, max_disp0, window_gap=5):
         for j, segment1 in enumerate(segments):
             times1 = segment1.index.get_level_values(0)
             delta_t = times1[0] - times0[-1]
-            if not (0 < delta_t < window_gap):
+            if not (0 < delta_t <= window_gap):
                 continue
             first1 = segment1.iloc[0]
             sqdist01 = ((last0 - first1)**2).sum()
-            if sqdist01 > np.sqrt(delta_t * max_disp0):
+            if sqdist01 > (delta_t * max_disp0)**2:
                 continue
             gc_map[i, j] = sqdist01
     return gc_map
@@ -274,22 +275,21 @@ def get_cmt_mat(segments, intensities,
     #     np.isfinite(alt_merge_mat.T)] = fillvalue
     # lapmat[sm_stop:, sm_start:sm_stop][
     #     np.isfinite(alt_split_mat.T)] = fillvalue
-    for key, weight in split_dic.items():
-        i = key[0] + sm_stop
-        j = key[1][0] + sm_stop
-        lapmat[j, i] = fillvalue
-    for key, weight in merge_dic.items():
-        i = key[0] + sm_stop
-        j = key[1][0] + sm_stop
-        lapmat[j, i] = fillvalue
-
+    if not gap_close_only:
+        for key, weight in split_dic.items():
+            i = key[0] + sm_stop
+            j = key[1][0] + sm_stop
+            lapmat[j, i] = fillvalue
+        for key, weight in merge_dic.items():
+            i = key[0] + sm_stop
+            j = key[1][0] + sm_stop
+            lapmat[i, j] = fillvalue
     if gap_close_only:
         red_lapmat = np.zeros((n_segments * 2, n_segments *2))
         red_lapmat[:n_segments, :n_segments] = lapmat[:n_segments, :n_segments]
         red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:, :n_segments]
         red_lapmat[:n_segments, n_segments:] = lapmat[:n_segments, sm_stop:]
-        red_lapmat[:n_segments, :n_segments] = lapmat[sm_stop:, sm_stop:]
+        red_lapmat[n_segments:, n_segments:] = lapmat[sm_stop:, sm_stop:]
         return red_lapmat
-    
     return lapmat
 
