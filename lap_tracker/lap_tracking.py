@@ -161,7 +161,10 @@ class LAPTracker(object):
         if np.where(self.times == t1) < 3:
             return pos0, mse0 * 0.
         for lbl in self.labels:
-            segment = self.get_segment(lbl).loc[:t0]
+            try:
+                segment = self.get_segment(lbl)
+            except KeyError:
+                continue
             if segment.shape[0] == 0:
                 continue
             if not t0 in segment.index:
