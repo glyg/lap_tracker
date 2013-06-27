@@ -191,14 +191,13 @@ class LAPTracker(object):
         for lbl in labels:
             segment = self.get_segment(lbl)
             if segment.shape[0] < min_length:
-                self.track = self.track.drop(lbl, level=1)
+                self.track = self.track.drop([lbl,], level=1)
 
     def get_segment(self, lbl):
         return self.track.xs(lbl, level=1)
 
     def segments(self):
-        labels = self.track.index.get_level_values(1).unique()        
-        for lbl in labels:
+        for lbl in self.labels:
             yield self.get_segment(lbl)
 
     def show_3D(self):
@@ -230,22 +229,23 @@ class LAPTracker(object):
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
-    def do_pca(self, ndims=3):
+    def do_pca(self, ndims=3, centered=True):
         
-        pca = PCA()
+        self.pca = PCA()
         if ndims == 2:
             coords = ['x', 'y']
             pca_coords = ['x_pca', 'y_pca']
         elif ndims == 3:
             coords = ['x', 'y', 'z']
             pca_coords = ['x_pca', 'y_pca', 'z_pca']
-        rotated = pca.fit_transform(self.track[coords])
+        rotated = self.pca.fit_transform(self.track[coords])
         for n, coord in enumerate(pca_coords):
             self.track[coord] = rotated[:, n]
-        center = self.track[pca_coords].mean(level=0)
-        center = center.reindex(self.track.index, level=0)
-        for coord in pca_coords:
-            self.track[coord] -= center[coord]
+        if centered:
+            center = self.track[pca_coords].mean(level=0)
+            center = center.reindex(self.track.index, level=0)
+            for coord in pca_coords:
+                self.track[coord] -= center[coord]
 
         
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
