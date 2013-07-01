@@ -164,7 +164,7 @@ class LAPTracker(object):
             return pos0, mse0 * 0.
         for lbl in self.labels:
             try:
-                segment = self.get_segment(lbl)
+                segment = self.get_segment(lbl).iloc[t0]
             except KeyError:
                 continue
             if segment.shape[0] == 0:
