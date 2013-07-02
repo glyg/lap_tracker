@@ -82,7 +82,7 @@ class LAPTracker(object):
         self.track.index.names[0] = 'time_stamp'
 
         
-    def close_merge_split(self):
+    def close_merge_split(self, return_mat=False):
         
         if self.ndims == 2:
             segments = [segment[['x', 'y']]
@@ -119,7 +119,7 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
-        return lapmat
+        if return_mat: return lapmat
 
         
     def position_track(self, t0, t1):
@@ -158,13 +158,13 @@ class LAPTracker(object):
         
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
         pos0 = self.track.xs(t0)[coordinates]
-        mse0 = pos0.copy()
+        mse0 = pos0.copy() * 0.
         
         if np.where(self.times == t1) < 3:
-            return pos0, mse0 * 0.
+            return pos0, mse0
         for lbl in self.labels:
             try:
-                segment = self.get_segment(lbl).iloc[t0]
+                segment = self.get_segment(lbl).loc[:t0]
             except KeyError:
                 continue
             if segment.shape[0] == 0:
@@ -191,22 +191,13 @@ class LAPTracker(object):
         for lbl in labels:
             segment = self.get_segment(lbl)
             if segment.shape[0] < min_length:
-<<<<<<< HEAD
                 self.track = self.track.drop([lbl,], level=1)
-=======
-                self.track = self.track.drop(lbl, level=1)
->>>>>>> 0b8b85200b099ca6101ad049cf6e97c3435e1c60
 
     def get_segment(self, lbl):
         return self.track.xs(lbl, level=1)
 
     def segments(self):
-<<<<<<< HEAD
         for lbl in self.labels:
-=======
-        labels = self.track.index.get_level_values(1).unique()        
-        for lbl in labels:
->>>>>>> 0b8b85200b099ca6101ad049cf6e97c3435e1c60
             yield self.get_segment(lbl)
 
     def show_3D(self):
@@ -238,22 +229,15 @@ class LAPTracker(object):
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
-<<<<<<< HEAD
     def do_pca(self, ndims=3, centered=True):
         
         self.pca = PCA()
-=======
-    def do_pca(self, ndims=3):
-        
-        pca = PCA()
->>>>>>> 0b8b85200b099ca6101ad049cf6e97c3435e1c60
         if ndims == 2:
             coords = ['x', 'y']
             pca_coords = ['x_pca', 'y_pca']
         elif ndims == 3:
             coords = ['x', 'y', 'z']
             pca_coords = ['x_pca', 'y_pca', 'z_pca']
-<<<<<<< HEAD
         rotated = self.pca.fit_transform(self.track[coords])
         for n, coord in enumerate(pca_coords):
             self.track[coord] = rotated[:, n]
@@ -262,16 +246,13 @@ class LAPTracker(object):
             center = center.reindex(self.track.index, level=0)
             for coord in pca_coords:
                 self.track[coord] -= center[coord]
-=======
-        rotated = pca.fit_transform(self.track[coords])
+        rotated = self.pca.fit_transform(self.track[coords])
         for n, coord in enumerate(pca_coords):
             self.track[coord] = rotated[:, n]
         center = self.track[pca_coords].mean(level=0)
         center = center.reindex(self.track.index, level=0)
         for coord in pca_coords:
             self.track[coord] -= center[coord]
->>>>>>> 0b8b85200b099ca6101ad049cf6e97c3435e1c60
-
         
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
