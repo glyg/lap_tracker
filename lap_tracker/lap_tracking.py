@@ -82,7 +82,7 @@ class LAPTracker(object):
         self.track.index.names[0] = 'time_stamp'
 
         
-    def close_merge_split(self):
+    def close_merge_split(self, return_mat=False):
         
         if self.ndims == 2:
             segments = [segment[['x', 'y']]
@@ -119,7 +119,7 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
-        return lapmat
+        if return_mat: return lapmat
 
         
     def position_track(self, t0, t1):
