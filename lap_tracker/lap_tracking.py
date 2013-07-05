@@ -229,7 +229,7 @@ class LAPTracker(object):
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
-    def do_pca(self, ndims=3, centered=True):
+    def do_pca(self, ndims=3):
         
         self.pca = PCA()
         if ndims == 2:
@@ -241,18 +241,7 @@ class LAPTracker(object):
         rotated = self.pca.fit_transform(self.track[coords])
         for n, coord in enumerate(pca_coords):
             self.track[coord] = rotated[:, n]
-        if centered:
-            center = self.track[pca_coords].mean(level=0)
-            center = center.reindex(self.track.index, level=0)
-            for coord in pca_coords:
-                self.track[coord] -= center[coord]
-        rotated = self.pca.fit_transform(self.track[coords])
-        for n, coord in enumerate(pca_coords):
-            self.track[coord] = rotated[:, n]
-        center = self.track[pca_coords].mean(level=0)
-        center = center.reindex(self.track.index, level=0)
-        for coord in pca_coords:
-            self.track[coord] -= center[coord]
+
         
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
