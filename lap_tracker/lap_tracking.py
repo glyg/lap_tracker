@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
+import logging
+
 import numpy as np
 import matplotlib.pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -12,6 +14,9 @@ import warnings
 
 from .lap_cost_matrix import get_lapmat, get_lap_args, get_cmt_mat
 from .lapjv import lapjv
+from .utils.progress import pprogress
+
+log = logging.getLogger(__name__)
 
 DEFAULTS = {'max_disp':0.1,
             'window_gap':10,
@@ -60,7 +65,7 @@ class LAPTracker(object):
         '''Unique values of the level 1 index of `self.track`'''
         return self.track.index.get_level_values(1).unique()
 
-    def get_track(self, **kwargs):
+    def get_track(self, verbose=False, **kwargs):
 
         for key, value in kwargs.items():
             if key.startswith('gp_'):
@@ -68,10 +73,20 @@ class LAPTracker(object):
             else:
                 self.__setattr__(key, value)
 
+        log.info('Get track (predict=%s)' % str(self.predict))
+
         self.track['new_label'] = self.track.index.get_level_values(1)
         time_points = self.times
-        for t0, t1 in zip(time_points[:-1], time_points[1:]):
+
+        n = len(time_points) - 1
+        for i, (t0, t1) in enumerate(zip(time_points[:-1], time_points[1:])):
+            if verbose:
+                pprogress(i / n * 100)
             self.position_track(t0, t1)
+
+        if verbose:
+            pprogress(-1)
+
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
@@ -94,7 +109,7 @@ class LAPTracker(object):
         self.track.index.names[0] = 't'
 
 
-    def close_merge_split(self, return_mat=False):
+    def close_merge_split(self, return_mat=False, verbose=False):
 
         if self.ndims == 2:
             segments = [segment[['x', 'y']]
@@ -109,7 +124,8 @@ class LAPTracker(object):
                            for segment in self.segments()]
         lapmat = get_cmt_mat(segments, intensities,
                              self.max_disp, self.window_gap,
-                             gap_close_only=True)
+                             gap_close_only=True,
+                             verbose=verbose)
         idxs_in, idxs_out, costs = get_lap_args(lapmat)
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
 
@@ -118,6 +134,7 @@ class LAPTracker(object):
         new_labels = old_labels.copy()
         unique_old = np.unique(old_labels)
         unique_new = np.unique(new_labels)
+
         for n, idx_in in enumerate(out_links[:num_seqs]):
             if idx_in >= num_seqs:
                 # new segment
@@ -127,6 +144,7 @@ class LAPTracker(object):
             unique_new[n] = new_label
         for old, new in zip(unique_old, unique_new):
             new_labels[old_labels == old] = new
+
         self.track['new_label'] = new_labels
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
@@ -259,7 +277,7 @@ def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T
     prev = segment[coord]
-    nugget = (sigma / (prev + sigma))**2
+    nugget = (sigma / (prev + sigma)) ** 2
     gp = GaussianProcess(nugget=nugget, **kwargs)
     gp.fit(times, prev)
     return gp.predict(t1, eval_MSE=True)
