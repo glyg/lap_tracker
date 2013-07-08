@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import division
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -22,24 +23,33 @@ DEFAULTS = {'max_disp':0.1,
 
 class LAPTracker(object):
 
-    def __init__(self, track_df, hdfstore, params=DEFAULTS):
+    def __init__(self, track_df=None,
+                 hdfstore=None,
+                 dist_function=np.square,
+                 params=DEFAULTS):
+
         self.track = track_df
         self.store = hdfstore
+        self.load_parameters(params)
+        self.dist_function = dist_function
+
+    def load_parameters(self, params):
+        """
+        """
         self.params = params
+
         # Complete the parameter by the defaults
         for key, value in DEFAULTS.items():
             if not self.params.has_key(key):
                 self.params[key] = value
         self.gp_kwargs = {}
-        for key, value in params.items():
+        for key, value in self.params.items():
             if isinstance(key, str) :
                 if key.startswith('gp_'):
                     self.gp_kwargs[key[3:]] = value
                 else:
                     self.__setattr__(key, value)
-        self.dist_function = np.square
-        
-                    
+
     @property
     def times(self):
         '''Unique values of the level 0 index of `self.track`'''
@@ -65,25 +75,27 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
-        self.store.open()
-        self.store['sorted'] = self.track
-        self.store.close()
+
+        if self.store:
+            self.store.open()
+            self.store['sorted'] = self.track
+            self.store.close()
 
     def reverse_track(self):
-        
+
         self.track['rev_times'] = self.track.index.get_level_values(0)
         self.track['rev_times'] = (self.track['rev_times'].iloc[-1]
                                    - self.track['rev_times'])
-        self.track = self.track.iloc[::-1]        
+        self.track = self.track.iloc[::-1]
         self.track.set_index('rev_times', append=True, inplace=True,
                              drop='True')
-        self.track.reset_index(level='time_stamp', drop=True, inplace=True)
+        self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
-        self.track.index.names[0] = 'time_stamp'
+        self.track.index.names[0] = 't'
 
-        
+
     def close_merge_split(self, return_mat=False):
-        
+
         if self.ndims == 2:
             segments = [segment[['x', 'y']]
                         for segment in self.segments()]
@@ -121,16 +133,16 @@ class LAPTracker(object):
         self.track.index.names[1] = 'label'
         if return_mat: return lapmat
 
-        
+
     def position_track(self, t0, t1):
 
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
 
-        pos1 = self.track.xs(t1)[coordinates]
+        pos1 = self.track.loc[t1][coordinates]
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
-            pos0 = self.track.xs(t0)[coordinates]
+            pos0 = self.track.loc[t0][coordinates]
         lapmat = get_lapmat(pos0, pos1,
                             self.max_disp * (t1 - t0),
                             self.dist_function)
@@ -149,17 +161,17 @@ class LAPTracker(object):
                 # new segment
                 new_label = self.track['new_label'].max() + 1
             else:
-                new_label  = self.track.xs(t0)['new_label'].iloc[idx_in]
-            self.track.xs(t1)['new_label'].iloc[n] = new_label
-    
+                new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
+            self.track.loc[t1]['new_label'].iloc[n] = new_label
+
     def predict_positions(self, t0, t1):
         """
         """
-        
+
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
         pos0 = self.track.xs(t0)[coordinates]
         mse0 = pos0.copy() * 0.
-        
+
         if np.where(self.times == t1) < 3:
             return pos0, mse0
         for lbl in self.labels:
@@ -230,7 +242,7 @@ class LAPTracker(object):
         return ax0, ax1
 
     def do_pca(self, ndims=3):
-        
+
         self.pca = PCA()
         if ndims == 2:
             coords = ['x', 'y']
@@ -242,12 +254,12 @@ class LAPTracker(object):
         for n, coord in enumerate(pca_coords):
             self.track[coord] = rotated[:, n]
 
-        
+
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T
     prev = segment[coord]
-    nugget = (sigma / (prev + sigma))**2 
+    nugget = (sigma / (prev + sigma))**2
     gp = GaussianProcess(nugget=nugget, **kwargs)
     gp.fit(times, prev)
     return gp.predict(t1, eval_MSE=True)
