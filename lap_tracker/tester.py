@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 
 import numpy as np
 import pandas as pd
@@ -50,7 +54,7 @@ def test_tracker(params=DEFAULT_PARAMS):
           % test_track.labels.shape[0])
     return scores, test_track
 
-    
+
 def make_data(n_part=5, n_times=100, noise=1e-10,
               p_disapear=1e-10, sampling=10):
     '''Creates a DataFrame containing simulated trajectories
@@ -79,7 +83,7 @@ def make_data(n_part=5, n_times=100, noise=1e-10,
     labels = range(n_part) * n_times
     time_stamps = np.array([range(n_times)] * n_part).T.flatten()
     tuples = [(t, lbl) for t, lbl in zip(time_stamps, labels)]
-    index = pd.MultiIndex.from_tuples(tuples, names=('time_stamp', 'label'))
+    index = pd.MultiIndex.from_tuples(tuples, names=('t', 'label'))
     all_pos = np.zeros((n_times * n_part, 3))
     for n in range(n_part):
         phase = phases[n]
@@ -94,7 +98,7 @@ def make_data(n_part=5, n_times=100, noise=1e-10,
     if disapear.size > 0:
         raw = raw.drop(raw.index[disapear])
     raw['good_lbls'] = raw.index.get_level_values(1)
-    grouped = raw.groupby(level='time_stamp')
+    grouped = raw.groupby(level='t')
     raw = grouped.apply(shuffle)
 
     teststore = pd.HDFStore('test.h5')
@@ -112,7 +116,7 @@ def shuffle(df):
                       columns=df.columns)
     return df
 
-    
+
 def positions(times, phase, sampling=5):
     '''
     computes a swirly trajectory
@@ -124,5 +128,5 @@ def positions(times, phase, sampling=5):
     xs /= xs.ptp()
     ys /= ys.ptp()
     zs /= zs.ptp()
-    
+
     return np.array([xs, ys - ys[0], zs]).T

@@ -1,17 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
+
+import logging
 
 import numpy as np
 
 import numpy.ma as ma
 from scipy.spatial.distance import cdist
 
+from .utils.progress import pprogress
+
+log = logging.getLogger(__name__)
+
 
 def get_lap_args(lapmat):
 
-    idxs_in, idxs_out = np.mgrid[:lapmat.shape[0], 
+    idxs_in, idxs_out = np.mgrid[:lapmat.shape[0],
                                  :lapmat.shape[1]]
     idxs_in = idxs_in.flatten()
     idxs_out = idxs_out.flatten()
@@ -24,7 +33,7 @@ def get_lap_args(lapmat):
     idxs_in = idxs_in[finite_flat]
     idxs_out = idxs_out[finite_flat]
     return idxs_in, idxs_out, costs
-    
+
 
 def get_lapmat(pos0, pos1, max_disp=1000., dist_function=np.square):
 
@@ -77,7 +86,7 @@ def get_lowerright(costmat, fillvalue):
     return lowerright
 
 def get_test_pos():
-    
+
     pos0 = np.array([[0, 0, 0],
                      [0, 1, 0],
                      [0, 2, 0]])
@@ -86,10 +95,16 @@ def get_test_pos():
     pos1[:, 1] = [1, 0, 2]
     return pos0, pos1
 
-def get_gap_closing(segments, max_disp0, window_gap=5):
+def get_gap_closing(segments, max_disp0, window_gap=5, verbose=False):
 
+    log.info("Close gap")
     gc_map = np.zeros((len(segments), len(segments))) * np.nan
+
+    n = len(segments)
     for i, segment0 in enumerate(segments):
+        if verbose:
+            pprogress(i / n * 100)
+
         times0 = segment0.index.get_level_values(0)
         last0 = segment0.iloc[-1]
         for j, segment1 in enumerate(segments):
@@ -102,12 +117,19 @@ def get_gap_closing(segments, max_disp0, window_gap=5):
             if sqdist01 > (delta_t * max_disp0)**2:
                 continue
             gc_map[i, j] = sqdist01
+    pprogress(-1)
     return gc_map
 
-def get_splitting(segments, intensities, max_disp0, window_gap=5):
+def get_splitting(segments, intensities, max_disp0, window_gap=5, verbose=False):
 
+    log.info('Find split')
     split_dic = {}
+
+    n = len(segments)
     for i, (segment0, intensities0) in enumerate(zip(segments, intensities)):
+        if verbose:
+            pprogress(i / n * 100)
+
         times0 = segment0.index.get_level_values(0)
         first_time = times0[0]
         first = segment0.iloc[0]
@@ -131,12 +153,20 @@ def get_splitting(segments, intensities, max_disp0, window_gap=5):
                         + intensities0.loc[first_time]))
             weight = sqdist01 * rho01 if rho01 > 1. else sqdist01 * rho01**-2
             split_dic[i, (j, split_time)] =  weight
+
+    pprogress(-1)
     return split_dic
 
-def get_merging(segments, intensities, max_disp0, window_gap):
+def get_merging(segments, intensities, max_disp0, window_gap, verbose=False):
 
+    log.info('Find merge')
     merge_dic = {}
+
+    n = len(segments)
     for i, (segment0, intensities0) in enumerate(zip(segments, intensities)):
+        if verbose:
+            pprogress(i / n * 100)
+
         times0 = segment0.index.get_level_values(0)
         last_time = times0[-1]
         last = segment0.iloc[-1]
@@ -160,11 +190,13 @@ def get_merging(segments, intensities, max_disp0, window_gap):
                         + intensities0.loc[last_time]))
             weight = sqdist01 * rho01 if rho01 > 1. else sqdist01 * rho01**-2
             merge_dic[i, (j, merge_time)] =  weight
+
+    pprogress(-1)
     return merge_dic
 
 def get_alt_merge_split(segments, seeds, intensities,
                         split_dic, merge_dic):
-    
+
     alt_merge_mat = np.zeros((len(segments), len(seeds))) * np.nan
     alt_split_mat = alt_merge_mat.copy().T
     merge_seeds = [key[1] for key in merge_dic.keys()]
@@ -206,7 +238,7 @@ def get_alt_merge_split(segments, seeds, intensities,
                                                    * (i0 / i1))
     return alt_merge_mat, alt_split_mat
 
-            
+
 def get_terminating(segments, terminate_cost):
     term_mat = np.identity(len(segments)) * terminate_cost
     term_mat[term_mat == 0] = np.nan
@@ -218,16 +250,18 @@ def get_initiating(segments, init_cost):
     return init_mat
 
 def get_cmt_mat(segments, intensities,
-                max_disp0, window_gap=5, gap_close_only=True):
-    
+                max_disp0, window_gap=5,
+                gap_close_only=True,
+                verbose=False):
+
     n_segments = len(segments)
-    gc_mat = get_gap_closing(segments, max_disp0, window_gap)
-    split_dic = get_splitting(segments, intensities, 0.4, 5)
-    merge_dic = get_merging(segments, intensities, 0.4, 5)
+    gc_mat = get_gap_closing(segments, max_disp0, window_gap, verbose)
+    split_dic = get_splitting(segments, intensities, 0.4, 5, verbose)
+    merge_dic = get_merging(segments, intensities, 0.4, 5, verbose)
     seeds = [key[1] for key in split_dic.keys()]
     seeds.extend(key[1] for key in merge_dic.keys())
     seeds = np.unique(seeds)
-    
+
     seeds = [tuple(seed) for seed in seeds]
     split_mat = np.zeros((len(seeds), len(segments))) * np.nan
     merge_mat = split_mat.copy().T
@@ -254,7 +288,7 @@ def get_cmt_mat(segments, intensities,
                                                        merge_dic)
     lapmat[sm_start:sm_stop, sm_stop:] = alt_split_mat
     lapmat[sm_stop:, sm_start:sm_stop] = alt_merge_mat
-    
+
     m_lapmat = ma.masked_invalid(lapmat)
     if np.all(np.isnan(lapmat)):
         terminate_cost = init_cost = 1.
