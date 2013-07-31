@@ -263,7 +263,10 @@ class LAPTracker(object):
         ax1.set_zlabel(u'z position (µm)')
         return ax0, ax1
 
-    def do_pca(self, ndims=3):
+    def do_pca(self, df=None, ndims=3):
+
+        if not df:
+            df = self.tracks
 
         self.pca = PCA()
         if ndims == 2:
@@ -272,9 +275,9 @@ class LAPTracker(object):
         elif ndims == 3:
             coords = ['x', 'y', 'z']
             pca_coords = ['x_pca', 'y_pca', 'z_pca']
-        rotated = self.pca.fit_transform(self.track[coords])
+        rotated = self.pca.fit_transform(df[coords])
         for n, coord in enumerate(pca_coords):
-            self.track[coord] = rotated[:, n]
+            df[coord] = rotated[:, n]
 
 
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
