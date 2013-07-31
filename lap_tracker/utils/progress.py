@@ -1,5 +1,9 @@
-import sys
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 
+import sys
 
 def pprogress(percent):
     """
@@ -23,10 +27,10 @@ def pprogress(percent):
 
     # Build progress bar
     bar = "["
-    for i in range(progress - 1):
+    for i in range(int(progress - 1)):
         bar += "="
     bar += ">"
-    for i in range(size - progress):
+    for i in range(int(size - progress)):
         bar += " "
     bar += "]"
 

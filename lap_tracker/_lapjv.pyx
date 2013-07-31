@@ -11,6 +11,11 @@ Copyright (c) 2009-2013 Broad Institute
 All rights reserved.
 '''
 
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
+
 import numpy as np
 cimport numpy as np
 cimport cython
@@ -50,10 +55,10 @@ def reduction_transfer(
     np.ndarray[dtype=np.float64_t, ndim=1,
                negative_indices=False, mode='c'] c):
     '''Perform the reduction transfer step from the Jonker-Volgenant algorithm
-    
+
     The data is input in a ragged array in terms of "i" structured as a
     vector of values for each i,j combination where:
-    
+
     ii - the i to be reduced
     j - the j-index of every entry
     idx - the index of the first entry for each i
@@ -63,16 +68,16 @@ def reduction_transfer(
         initialized to zero for the first reduction transfer.
     v - the dual variable "v" which will be reduced in-place
     c - the cost for each entry.
-    
+
     The code described in the paper is:
-    
+
     for each assigned row i do
     begin
        j1:=x[i]; u=min {c[i,j]-v[j] | j=1..n, j != j1};
        v[j1]:=v[j1]-(u-u[i]);
        u[i] = u;
     end;
-    
+
     The authors note that reduction transfer can be applied in later stages
     of the algorithm but does not seem to provide a substantial benefit
     in speed.
@@ -98,7 +103,7 @@ def reduction_transfer(
         double *v_base = <double *>(v.data)
         double *c_base = <double *>(c.data)
         double *p_c
-    
+
     with nogil:
         for iii from 0 <= iii < n_i:
             i = p_i[iii]
@@ -117,7 +122,7 @@ def reduction_transfer(
             if j_at_min != -1:
                 v_base[j1] -= min_u - p_u[i]
                 p_u[i] = min_u
-        
+
 def augmenting_row_reduction(
     int n,
     np.ndarray[dtype=np.uint32_t,  ndim=1,
@@ -140,7 +145,7 @@ def augmenting_row_reduction(
                negative_indices=False, mode='c'] c):
     '''Perform the augmenting row reduction step from the
     Jonker-Volgenaut algorithm
-    
+
     n - the number of i and j in the linear assignment problem
     ii - the unassigned i
     jj - the j-index of every entry in c
@@ -152,7 +157,7 @@ def augmenting_row_reduction(
         initialized to zero for the first reduction transfer.
     v - the dual variable "v" which will be reduced in-place
     c - the cost for each entry.
-    
+
     returns a numpy array of the new free choices.
 
     '''
@@ -186,7 +191,7 @@ def augmenting_row_reduction(
         int j1
         int j2
         int k
-        
+
     #######################################
     #
     # From Jonker:
@@ -206,7 +211,7 @@ def augmenting_row_reduction(
     #    k:=y [jl]; if k>0 then x [k]:=0; x[i]:=jl; y [ j l ] : = i ; i:=k
     #  until ul =u2 (* no reduction transfer *) or k=0 i~* augmentation *)
     #  end
-    
+
     with nogil:
         k = 0
         while k < n_i:
@@ -269,7 +274,7 @@ def augment(
     np.ndarray[dtype=np.float64_t, ndim=1,
                negative_indices=False, mode='c'] c):
     '''Perform the augmentation step to assign unassigned i and j
-    
+
     n - the # of i and j, also the marker of unassigned x and y
     ii - the unassigned i
     jj - the ragged arrays of j for each i
@@ -336,7 +341,7 @@ def augment(
         int *p_on_to_do   = <int *>(PyArray_DATA(on_to_do))
         double inf = np.sum(c) + 1 # This is larger than any path through.
         double umin, temp, h, u1
-    
+
     ##################################################
     #
     # Augment procedure: from the Jonker paper.
@@ -345,13 +350,13 @@ def augment(
     # begin
     #   for all unassigned i* do
     #   begin
-    #     for j:= 1 ... n do 
+    #     for j:= 1 ... n do
     #       begin d[j] := c[i*,j] - v[j] ; pred[j] := i* end;
     #     READY: = { ) ; SCAN: = { } ; TODO: = { 1 ... n} ;
     #     repeat
     #       if SCAN = { } then
     #       begin
-    #         u = min {d[j] for j in TODO} ; 
+    #         u = min {d[j] for j in TODO} ;
     #         SCAN: = {j | d[j] = u} ;
     #         TODO: = TODO - SCAN;
     #         for j in SCAN do if y[j]==0 then go to augment
@@ -395,7 +400,7 @@ def augment(
                 p_to_do[jjj] = j
                 p_on_to_do[j] = i
                 p_pred_base[j] = i
-            
+
             n_to_do = n_j
             low = 0
             up = 0
@@ -475,10 +480,10 @@ def augment(
                                 p_to_do[n_to_do] = j
                                 p_on_to_do[j] = i
                                 n_to_do += 1
-                            
+
                 if j1 != n:
                     break
-                            
+
             # Augment
             for jjj from 0 <= jjj < n_ready:
                 j = p_ready[jjj]
@@ -514,7 +519,7 @@ cdef int bsearch(int *ptr, int count, int val) nogil:
         int high = count-1
         int mid
     while low <= high:
-        mid = (low + high) / 2
+        mid = (low + high) // 2
         if val == ptr[mid]:
             return mid
         if val > ptr[mid]:

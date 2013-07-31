@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 
 import logging
 
@@ -45,7 +49,7 @@ class LAPTracker(object):
 
         # Complete the parameter by the defaults
         for key, value in DEFAULTS.items():
-            if not self.params.has_key(key):
+            if key not in self.params.keys():
                 self.params[key] = value
         self.gp_kwargs = {}
         for key, value in self.params.items():
