@@ -45,6 +45,7 @@ formatter = logging.Formatter(logformat, "%Y-%m-%d %H:%M:%S")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
+logger.propagate = False
 
 import warnings
 warnings.filterwarnings("ignore")
