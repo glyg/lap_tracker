@@ -35,7 +35,13 @@ class LAPTracker(object):
     def __init__(self, track_df=None,
                  hdfstore=None,
                  dist_function=np.square,
-                 params=DEFAULTS):
+                 params=DEFAULTS,
+                 verbose=True):
+
+        if not verbose:
+            log.disabled = True
+        else:
+            log.disabled = False
 
         self.track = track_df
         self.store = hdfstore

@@ -254,6 +254,11 @@ def get_cmt_mat(segments, intensities,
                 gap_close_only=True,
                 verbose=False):
 
+    if not verbose:
+        log.disabled = True
+    else:
+        log.disabled = False
+
     n_segments = len(segments)
     gc_mat = get_gap_closing(segments, max_disp0, window_gap, verbose)
     split_dic = get_splitting(segments, intensities, 0.4, 5, verbose)
