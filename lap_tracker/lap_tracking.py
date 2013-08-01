@@ -95,10 +95,10 @@ class LAPTracker(object):
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
 
-        if self.store:
-            self.store.open()
-            self.store['sorted'] = self.track
-            self.store.close()
+        # if self.store:
+        #     self.store.open()
+        #     self.store['sorted'] = self.track
+        #     self.store.close()
 
     def reverse_track(self):
 
@@ -266,7 +266,7 @@ class LAPTracker(object):
     def do_pca(self, df=None, ndims=3):
 
         if not df:
-            df = self.tracks
+            df = self.track
 
         self.pca = PCA()
         if ndims == 2:
