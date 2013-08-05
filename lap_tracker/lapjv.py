@@ -15,33 +15,39 @@ Copyright (c) 2009-2013 Broad Institute
 All rights reserved.
 '''
 
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
+
 __version__ = "$Revision: 1 $"
 
-import pyximport; pyximport.install()
+import pyximport
+pyximport.install()
 
 import numpy as np
 
-from _lapjv import reduction_transfer
-from _lapjv import augmenting_row_reduction
-from _lapjv import augment
+from ._lapjv import reduction_transfer
+from ._lapjv import augmenting_row_reduction
+from ._lapjv import augment
 
 
 def lapjv(i, j, costs, wants_dual_variables = False,
           augmenting_row_reductions = 2, use_slow=False):
     '''Sparse linear assignment solution using Jonker-Volgenant algorithm
-    
+
     i,j - similarly-sized vectors that pair the object at index i[n] with
           the object at index j[n]
-          
+
     costs - a vector of similar size to i and j that is the cost of pairing
             i[n] with j[n].
-            
+
     wants_dual_variables - the dual problem reduces the costs using two
             vectors, u[i] and v[j] where the solution is the maximum value of
             np.sum(u) + np.sum(v) where cost[i,j] - u[i] - v[j] >=  0.
             Set wants_dual_variables to True to have u and v returned in
             addition to the assignments.
-            
+
     augmenting_row_reductions - the authors suggest that augmenting
             row reduction be performed twice to optimize the u and v
             before the augmenting stage. The caller can choose a
@@ -49,10 +55,10 @@ def lapjv(i, j, costs, wants_dual_variables = False,
             value here.
     use_slow: Bool, default False:
             use the pure python implementation, useful for debugging purpose
-    
+
     All costs not appearing in i,j are taken as infinite. Each i in the range,
     0 to max(i) must appear at least once and similarly for j.
-    
+
     returns (x, y), the pairs of assignments that represent the solution
     or (x, y, u, v) if the dual variables are requested.
     '''
@@ -60,7 +66,7 @@ def lapjv(i, j, costs, wants_dual_variables = False,
     i = np.atleast_1d(i).astype(int)
     j = np.atleast_1d(j).astype(int)
     costs = np.atleast_1d(costs)
-    
+
     assert len(i) == len(j), "i and j must be the same length"
     assert len(i) == len(costs), "costs must be the same length as i"
 
@@ -79,10 +85,10 @@ def lapjv(i, j, costs, wants_dual_variables = False,
     i_count = np.bincount(i)
     assert not np.any(i_count == 0), "all i must be paired with at least one j"
     i_index = np.hstack([[0], np.cumsum(i_count[:-1])])
-    
+
     n = len(j_count) # dimension of the square cost matrix
     assert n == len(i_count), "There must be the same number of unique i and j"
-    
+
     # # # # # # # #
     #
     # Variable initialization:
@@ -98,7 +104,7 @@ def lapjv(i, j, costs, wants_dual_variables = False,
     x = np.ascontiguousarray(np.ones(n, np.uint32) * n)
     y = np.ascontiguousarray(np.ones(n, np.uint32) * n, np.uint32)
     u = np.ascontiguousarray(np.zeros(n, np.float64))
-    
+
     # # # # # # # #
     #
     # Column reduction
@@ -174,13 +180,13 @@ def lapjv(i, j, costs, wants_dual_variables = False,
         return x,y,u,v
     else:
         return x,y
-    
+
 def slow_reduction_transfer(ii, j, idx, count, x, u, v, c):
     '''Perform the reduction transfer step from the Jonker-Volgenant algorithm
-    
+
     The data is input in a ragged array in terms of "i" structured as a
     vector of values for each i,j combination where:
-    
+
     ii - the i to be reduced
     j - the j-index of every entry
     idx - the index of the first entry for each i
@@ -190,16 +196,16 @@ def slow_reduction_transfer(ii, j, idx, count, x, u, v, c):
         initialized to zero for the first reduction transfer.
     v - the dual variable "v" which will be reduced in-place
     c - the cost for each entry.
-    
+
     The code described in the paper is:
-    
+
     for each assigned row i do
     begin
        j1:=x[i]; u=min {c[i,j]-v[j] | j=1..n, j != j1};
        v[j1]:=v[j1]-(u-u[i]);
        u[i] = u;
     end;
-    
+
     The authors note that reduction transfer can be applied in later stages
     of the algorithm but does not seem to provide a substantial benefit
     in speed.
@@ -210,16 +216,16 @@ def slow_reduction_transfer(ii, j, idx, count, x, u, v, c):
         try:
             uu = np.min((c[idx[i]:(idx[i]+count[i])] - v[jj])[jj != j1])
         except ValueError:
-            print(c[idx[i]:(idx[i]+count[i])] - v[jj])
-            print idx[i], idx[i]+count[i], jj, j1
+            print(c[idx[i]:(idx[i] + count[i])] - v[jj])
+            print(idx[i], idx[i] + count[i], jj, j1)
             continue #raise
         v[j1] = v[j1] - uu + u[i]
         u[i] = uu
-        
+
 def slow_augmenting_row_reduction(n, ii, jj, idx, count, x, y, u, v, c):
     '''Perform the augmenting row reduction step
     from the Jonker-Volgenaut algorithm
-    
+
     n - the number of i and j in the linear assignment problem
     ii - the unassigned i
     jj - the j-index of every entry in c
@@ -231,10 +237,10 @@ def slow_augmenting_row_reduction(n, ii, jj, idx, count, x, y, u, v, c):
         initialized to zero for the first reduction transfer.
     v - the dual variable "v" which will be reduced in-place
     c - the cost for each entry.
-    
+
     returns the new unassigned i
     '''
-        
+
     #######################################
     #
     # From Jonker:
@@ -284,7 +290,7 @@ def slow_augmenting_row_reduction(n, ii, jj, idx, count, x, y, u, v, c):
 
 def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
     '''Perform the augmentation step to assign unassigned i and j
-    
+
     n - the # of i and j, also the marker of unassigned x and y
     ii - the unassigned i
     jj - the ragged arrays of j for each i
@@ -295,7 +301,7 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
     u,v - the dual variables
     c - the costs
     '''
-    
+
     ##################################################
     #
     # Augment procedure: from the Jonker paper.
@@ -307,13 +313,13 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
     # begin
     #   for all unassigned i* do
     #   begin
-    #     for j:= 1 ... n do 
+    #     for j:= 1 ... n do
     #       begin d[j] := c[i*,j] - v[j] ; pred[j] := i* end;
     #     READY: = { ) ; SCAN: = { } ; TODO: = { 1 ... n} ;
     #     repeat
     #       if SCAN = { } then
     #       begin
-    #         u = min {d[j] for j in TODO} ; 
+    #         u = min {d[j] for j in TODO} ;
     #         SCAN: = {j | d[j] = u} ;
     #         TODO: = TODO - SCAN;
     #         for j in SCAN do if y[j]==0 then go to augment
@@ -345,7 +351,7 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
         cc[i,jj[idx[i]:(idx[i]+count[i])]] = c[idx[i]:(idx[i]+count[i])]
     c = cc
     for i in ii:
-        print "Processing i=%d" % i
+        print("Processing i=%d" % i)
         j = jj[idx[i]:(idx[i] + count[i])]
         d = c[i,:] - v
         pred = np.ones(n, int) * i
@@ -355,12 +361,12 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
         to_do = list(range(n))
         try:
             while True:
-                print "Evaluating i=%d, n_scan = %d" % (i, len(scan))
+                print("Evaluating i=%d, n_scan = %d" % (i, len(scan)))
                 if len(scan) == 0:
                     ready += on_deck
                     on_deck = []
                     umin = np.min([d[jjj] for jjj in to_do])
-                    print "umin = %f" % umin
+                    print("umin = %f" % umin)
                     scan = [jjj for jjj in to_do if d[jjj] == umin]
                     to_do = [jjj for jjj in to_do if d[jjj] != umin]
                     for j1 in scan:
@@ -368,34 +374,34 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
                             raise StopIteration()
                 j1 = scan[0]
                 iii = y[j1]
-                print "Consider replacing i=%d, j=%d" % (iii, j1)
+                print("Consider replacing i=%d, j=%d" % (iii, j1))
                 scan = scan[1:]
                 on_deck += [j1]
                 u1 = c[iii, j1] - v[j1] - umin
                 for j1 in list(to_do):
                     h = c[iii, j1] - v[j1] - u1
-                    print "Consider j=%d as replacement, c[%d,%d]=%f,v[%d]=%f,h=%f, d[j]= %f" % (j1,iii,j1,c[iii,j1],j1,v[j1],h,d[j1])
+                    print("Consider j=%d as replacement, c[%d,%d]=%f,v[%d]=%f,h=%f, d[j]= %f" % (j1,iii,j1,c[iii,j1],j1,v[j1],h,d[j1]))
                     if h < d[j1]:
-                        print "Add to chain"
+                        print("Add to chain")
                         pred[j1] = iii
                         if h == umin:
                             if y[j1] == n:
                                 raise StopIteration()
-                            print "Add to scan"
+                            print("Add to scan")
                             scan += [j1]
                             to_do.remove(j1)
                         d[j1] = h
 
         except StopIteration:
             # Augment
-            print "Augmenting %d" % j1
+            print("Augmenting %d" % j1)
             for k in ready:
                 temp = v[k]
                 v[k] = v[k] + d[k] - umin
-                print "v[%d] %f -> %f" % (k, temp, v[k])
+                print("v[%d] %f -> %f" % (k, temp, v[k]))
             while True:
                 iii = pred[j1]
-                print "y[%d] %d -> %d" % (j1, y[j1], iii)
+                print("y[%d] %d -> %d" % (j1, y[j1], iii))
                 y[j1] = iii
                 j1, x[iii] = x[iii], j1
                 if iii == i:
@@ -413,4 +419,4 @@ def slow_augment(n, ii, jj, idx, count, x, y, u, v, c):
 #     j = np.load("c:/temp/bad/img-1557/j.npy")
 #     costs = np.load("c:/temp/bad/img-1557/c.npy")
 #     lapjv(i, j, costs)
-    
+
