@@ -49,7 +49,6 @@ class LAPTracker(object):
     def labels(self):
         '''Unique values of the level 1 index of `self.track`'''
         return self.track.index.get_level_values(1).unique()
-
     def get_track(self, **kwargs):
 
         for key, value in kwargs.items():
