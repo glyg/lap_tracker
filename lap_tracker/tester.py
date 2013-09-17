@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
@@ -24,6 +23,120 @@ DEFAULT_PARAMS = {'n_part':5,
                   'gp_regr':'quadratic',
                   'gp_theta0':0.1}
 
+def generate_split(size, noise, split_time):
+    
+    np.random.seed(0)
+    ts = np.linspace(0.1, 1., size)
+    x1 = ts + np.random.normal(0, noise, size)
+    x2 = np.sin(ts) + np.random.normal(0, noise, size)
+
+    y1 = np.cos(ts) + np.random.normal(0, noise, size)
+    y2 = np.cos(ts) + noise + np.random.normal(0, noise, size)
+
+    I1 = np.random.normal(1, noise, size)
+    I2 = np.random.normal(1, noise, size)
+
+    x2[:split_time] = np.nan
+    y2[:split_time] = np.nan
+    I1[:split_time] += I2[:split_time]
+    I2[:split_time] = np.nan   
+   
+    xs = np.vstack((x1, x2)).T.flatten()
+    ys = np.vstack((y1, y2)).T.flatten()
+    Is = np.vstack((I1, I2)).T.flatten()
+    
+    data = np.vstack((xs, ys, Is)).T
+    t_stamp, label = np.mgrid[0:size, 0:2]
+
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+                                       in zip(t_stamp.ravel(),
+                                              label.ravel())],
+                                      names=('t', 'label'))
+    
+    t_split = pd.DataFrame(data, index=index, columns=('x', 'y', 'I'))
+    t_split = t_split.dropna()
+    t_split = LAPTracker(t_split)
+    t_split.ndims = 2
+    t_split.max_disp = 2. / size
+
+    return t_split
+
+def generate_gap(size, noise, gap_start,
+                 gap_stop, traj_shift=1.):
+
+    np.random.seed(0)
+    ts = np.linspace(0.1, 1., size)
+    x1 = np.cos(ts) + np.random.normal(0, noise, size) + traj_shift
+    x2 = np.sin(ts) + np.random.normal(0, noise, size)
+
+    y1 = np.cos(ts) + np.random.normal(0, noise, size)
+    y2 = np.cos(ts) + noise + np.random.normal(0, noise, size)
+
+    I1 = np.random.normal(1, noise, size)
+    I2 = np.random.normal(1, noise, size)
+
+    
+    x2[gap_start: gap_stop] = np.nan
+    y2[gap_start: gap_stop] = np.nan
+    I2[gap_start: gap_stop] = np.nan   
+    
+    xs = np.vstack((x1, x2)).T.flatten()
+    ys = np.vstack((y1, y2)).T.flatten()
+    Is = np.vstack((I1, I2)).T.flatten()
+    
+    data = np.vstack((xs, ys, Is)).T
+    
+    t_stamp, label = np.mgrid[0:size, 0:2]
+    label[gap_stop:, 1] = 2
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+                                       in zip(t_stamp.ravel(),
+                                              label.ravel())],
+                                      names=('t', 'label'))
+    t_gap = pd.DataFrame(data, index=index, columns=('x', 'y', 'I'))
+    t_gap = t_gap.dropna()
+    t_gap = LAPTracker(t_gap)
+    t_gap.ndims = 2
+    t_gap.dist_function = lambda x:x
+    t_gap.max_disp = 2. / size
+    return t_gap
+    
+def generate_merge(size, noise, merge_time):
+    
+    np.random.seed(0)
+    ts = np.linspace(0.1, 1., size)
+    x1 = ts + np.random.normal(0, noise, size)
+    x2 = np.sin(ts) + np.random.normal(0, noise, size)
+
+    y1 = np.cos(ts) + np.random.normal(0, noise, size)
+    y2 = np.cos(ts) + noise + np.random.normal(0, noise, size)
+
+    I1 = np.random.normal(1, noise, size)
+    I2 = np.random.normal(1, noise, size)
+
+    x2[: merge_time] = np.nan
+    y2[: merge_time] = np.nan
+    I1[: merge_time] += I2[: merge_time]
+    I2[: merge_time] = np.nan   
+   
+    xs = np.vstack((x1, x2)).T.flatten()
+    ys = np.vstack((y1, y2)).T.flatten()
+    Is = np.vstack((I1, I2)).T.flatten()
+    
+    data = np.vstack((xs, ys, Is)).T
+    data = data[::-1]
+    t_stamp, label = np.mgrid[0:size, 0:2]
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+                                       in zip(t_stamp.ravel(),
+                                              label.ravel())],
+                                      names=('t', 'label'))
+    t_merge = pd.DataFrame(data, index=index, columns=('x', 'y', 'I'))
+    t_merge = t_merge.dropna()
+    t_merge = LAPTracker(t_merge)
+    t_merge.ndims = 2
+    t_merge.max_disp = 2. / size
+    return t_merge
+
+
 def test_tracker(params=DEFAULT_PARAMS):
 
     n_part = params['n_part']
@@ -34,27 +147,37 @@ def test_tracker(params=DEFAULT_PARAMS):
     data, teststore = make_data(n_part, n_times, noise,
                                 p_disapear, sampling)
 
-    test_track = LAPTracker(data, teststore, params)
-    test_track.dist_function = lambda x:x
+    test_track = LAPTracker(data, teststore, params=params)
+    # test_track.dist_function = lambda x: np.exp(- (x/ test_track.max_disp)**2)
     test_track.get_track(predict=False)
+    # print('''Number of segments after first pass: %d'''
+    #       % test_track.labels.size)
     # test_track.reverse_track()
     # test_track.get_track(predict=True)
+    # print('''Number of segments after 2nd pass: %d'''
+    #       % test_track.labels.size)
     # test_track.reverse_track()
     # test_track.get_track(predict=True)
-    test_track.close_merge_split()
+    # print('''Number of segments after 3rd pass: %d'''
+    #       % test_track.labels.size)
+    # test_track.close_merge_split(gap_close_only=True)
+    # print('''Number of segments after gap close: %d'''
+    #       % test_track.labels.size)
+    # test_track.close_merge_split(gap_close_only=False)
+    # print('''Number of segments after merge/split: %d'''
+    #       % test_track.labels.size)
     scores = {}
-    for label in test_track.labels:
-        segment = test_track.get_segment(label)
-        good = segment['good_lbls']
-        bc = np.bincount(good.values.astype(np.int))
-        scores[label] = bc.max()/bc.sum() * 100
-    global_score = np.mean([score for score in scores.values()])
-    print('Global: %.3f' % global_score)
-    print('Number of individual trajectories: %i'
-          % test_track.labels.shape[0])
+    # for label in test_track.labels:
+    #     segment = test_track.get_segment(label)
+    #     good = segment['good_lbls']
+    #     bc = np.bincount(good.values.astype(np.int))
+    #     scores[label] = bc.max()/bc.sum() * 100
+    # global_score = np.mean([score for score in scores.values()])
+    # print('Global: %.3f' % global_score)
+    # print('Number of individual trajectories: %i'
+    #       % test_track.labels.shape[0])
     return scores, test_track
-
-
+    
 def make_data(n_part=5, n_times=100, noise=1e-10,
               p_disapear=1e-10, sampling=10):
     '''Creates a DataFrame containing simulated trajectories

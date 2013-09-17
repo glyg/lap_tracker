@@ -11,12 +11,13 @@ import logging
 import numpy as np
 import matplotlib.pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
 
 from sklearn.gaussian_process import GaussianProcess
 from sklearn.decomposition import PCA
 import warnings
 
-from .lap_cost_matrix import get_lapmat, get_lap_args, get_cmt_mat
+from .lap_cost_matrix import LAPSolver, CMSSolver
 from .lapjv import lapjv
 from .utils.progress import pprogress
 
@@ -47,7 +48,8 @@ class LAPTracker(object):
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
-
+        self.pos_solver = LAPSolver(self, verbose=verbose)
+        
     def load_parameters(self, params):
         """
         """
@@ -59,12 +61,11 @@ class LAPTracker(object):
                 self.params[key] = value
         self.gp_kwargs = {}
         for key, value in self.params.items():
-            if isinstance(key, str) :
+            if isinstance(key, str) or isinstance(key, unicode) :
                 if key.startswith('gp_'):
                     self.gp_kwargs[key[3:]] = value
                 else:
                     self.__setattr__(key, value)
-
     @property
     def times(self):
         '''Unique values of the level 0 index of `self.track`'''
@@ -118,39 +119,29 @@ class LAPTracker(object):
         self.track.index.names[0] = 't'
 
 
-    def close_merge_split(self, return_mat=False, verbose=False):
+    def close_merge_split(self, verbose=False, gap_close_only=True):
 
-        if self.ndims == 2:
-            segments = [segment[['x', 'y']]
-                        for segment in self.segments()]
-        elif self.ndims == 3:
-            segments = [segment[['x', 'y', 'z']]
-                        for segment in self.segments()]
-        try:
-            intensities = [segment['I'] for segment in self.segments()]
-        except KeyError:
-            intensities = [(segment['x'] + 1) / (segment['x'] + 1)
-                           for segment in self.segments()]
-        lapmat = get_cmt_mat(segments, intensities,
-                             self.max_disp, self.window_gap,
-                             gap_close_only=True,
-                             verbose=verbose)
-        idxs_in, idxs_out, costs = get_lap_args(lapmat)
-        in_links, out_links = lapjv(idxs_in, idxs_out, costs)
+        self.cms_solver = CMSSolver(self, verbose=verbose)
 
-        num_seqs = len(segments)
+        in_links, out_links = self.cms_solver.solve(gap_close_only=gap_close_only)
+        n_segments = len(self.cms_solver.segments)
+        n_seeds = len(self.cms_solver.seeds)
+        sm_start = n_segments
+        sm_stop = n_segments + n_seeds if not gap_close_only else n_segments
+
+
+        ## Now for gap closing
         old_labels = self.track.index.get_level_values(1).values
         new_labels = old_labels.copy()
         unique_old = np.unique(old_labels)
         unique_new = np.unique(new_labels)
-
-        for n, idx_in in enumerate(out_links[:num_seqs]):
-            if idx_in >= num_seqs:
-                # new segment
-                new_label = unique_new.max() + 1
-            else:
+        for n, idx_in in enumerate(out_links[:n_segments]):
+            ## gap closing
+            if idx_in < n_segments:
                 new_label  = unique_new[idx_in]
-            unique_new[n] = new_label
+                unique_new[n] = new_label
+            elif idx_in >= sm_stop:
+                unique_new[n] = unique_new.max() + 1
         for old, new in zip(unique_old, unique_new):
             new_labels[old_labels == old] = new
 
@@ -158,24 +149,64 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
-        if return_mat: return lapmat
 
+        
+        ## First split and merge, because this changes
+        ## data length, without changing the unique labels
+        
+        labels = self.labels
+        for n, idx_in in enumerate(out_links[:n_segments]):
+            ## splitting
+            if n_segments <= idx_in < sm_stop:
+                seed = self.cms_solver.seeds[idx_in - sm_start]
+                print('split seed %s' % str(seed)) 
+                root_label = labels[seed[0]]
+                split_time = seed[1]
+                branch_label = labels[n]
+                self.split(root_label, split_time, branch_label)
+
+        for n, idx_in in enumerate(out_links[sm_start:sm_stop]):
+            ## merging
+            if idx_in < n_segments:
+                seed = self.cms_solver.seeds[n]
+                print('merge seed %s' % str(seed)) 
+                root_label = labels[seed[0]]
+                merge_time = seed[1]
+                branch_label = labels[idx_in]
+                self.merge(root_label, merge_time, branch_label)
+
+
+    def split(self, root_label, split_time, branch_label):
+        
+        root_segment = self.get_segment(root_label) 
+        duplicated = root_segment.loc[:split_time].copy()
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+                                               for t in duplicated.index])
+        duplicated.set_index(dup_index, inplace=True)
+        self.track = self.track.append(duplicated)
+        self.track.sortlevel(0, inplace=True)
+
+    def merge(self, root_label, merge_time, branch_label):
+
+        root_segment = self.get_segment(root_label) 
+        duplicated = root_segment.loc[merge_time:].copy()
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+                                               for t in duplicated.index])
+        duplicated.set_index(dup_index, inplace=True)
+        self.track = self.track.append(duplicated)
+        self.track.sortlevel(0, inplace=True)
 
     def position_track(self, t0, t1):
 
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
-
         pos1 = self.track.loc[t1][coordinates]
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
             pos0 = self.track.loc[t0][coordinates]
-        lapmat = get_lapmat(pos0, pos1,
-                            self.max_disp * (t1 - t0),
-                            self.dist_function)
-        idxs_in, idxs_out, costs = get_lap_args(lapmat)
+
         try:
-            in_links, out_links = lapjv(idxs_in, idxs_out, costs)
+            in_links, out_links = self.pos_solver.solve(pos0, pos1)
         except AssertionError:
             warnings.warn('''Someting's' amiss between points %s and %s'''
                           % (t0, t1), RuntimeWarning)
@@ -183,6 +214,7 @@ class LAPTracker(object):
                 new_label = self.track['new_label'].max() + 1
                 self.track.xs(t1)['new_label'].iloc[n] = new_label
             return
+
         for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
@@ -190,7 +222,7 @@ class LAPTracker(object):
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
             self.track.loc[t1]['new_label'].iloc[n] = new_label
-
+    
     def predict_positions(self, t0, t1):
         """
         """
@@ -216,7 +248,7 @@ class LAPTracker(object):
                 mse = pos * 0
             else:
                 pred = [_predict_coordinate(segment, coord, times,
-                                            t0, self.sigma,
+                                            t1, self.sigma,
                                             **self.gp_kwargs)
                         for coord in coordinates]
                 pos = [p[0] for p in pred]
@@ -239,33 +271,62 @@ class LAPTracker(object):
         for lbl in self.labels:
             yield self.get_segment(lbl)
 
-    def show_3D(self):
+    def show(self, ndims=2):
 
-        fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+        if ndims == 3:
+            fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+        else:
+            fig, axes = plt.subplots(1, 2)
         ax0, ax1 = axes
         for label in self.labels:
-            ax0, ax1 = self.show_segment(label, axes)
+            if ndims == 3:
+                ax0, ax1 = self.show_segment_3D(label, axes)
+            else:
+                ax0, ax1 = self.show_segment_2D(label, axes)
         return ax0, ax1
 
-    def show_segment(self, label, axes=None):
+    def show_3D(self):
+        return self.show(ndims=3)
+        
+    def show_segment_3D(self, label, axes=None):
         if axes is None:
             fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
         ax0, ax1 = axes
         segment = self.get_segment(label)
+        
         times = segment.index.get_level_values(0)
-        ax0.plot(times, segment['x'],
-                 zs=segment['y'])
-        colors = plt.cm.jet(segment['x'].size)
-        ax1.plot(segment['x'], segment['y'],
-                 zs=segment['z'])
-        ax1.scatter(segment['x'], segment['y'],
-                    segment['z'], c=colors)
+        ax0.plot(times, segment['x'].values,
+                 zs=segment['y'].values)
+        colors = plt.cm.jet(segment['x'].values.size)
+        ax1.plot(segment['x'].values, segment['y'].values,
+                 zs=segment['z'].values)
+        ax1.scatter(segment['x'].values, segment['y'].values,
+                    segment['z'].values, c=colors)
         ax0.set_xlabel('Time (min)')
         ax0.set_ylabel(u'x position (µm)')
         ax0.set_zlabel(u'y position (µm)')
         ax1.set_xlabel(u'x position (µm)')
         ax1.set_ylabel(u'y position (µm)')
         ax1.set_zlabel(u'z position (µm)')
+
+        return ax0, ax1
+
+    def show_segment_2D(self, label, axes=None):
+        if axes is None:
+            fig, axes = plt.subplots(1, 2)
+        ax0, ax1 = axes
+        segment = self.get_segment(label)
+        
+        times = segment.index
+        ax0.plot(times, segment['x'].values)
+        colors = plt.cm.jet(segment['x'].values.size)
+        ax1.plot(segment['x'].values, segment['y'].values)
+        ax1.scatter(segment['x'].values, segment['y'].values,
+                    c=colors)
+        ax0.set_xlabel('Time (min)')
+        ax0.set_ylabel(u'x position (µm)')
+        ax1.set_xlabel(u'x position (µm)')
+        ax1.set_ylabel(u'y position (µm)')
         return ax0, ax1
 
     def do_pca(self, df=None, ndims=3):
