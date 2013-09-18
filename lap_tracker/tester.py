@@ -150,32 +150,32 @@ def test_tracker(params=DEFAULT_PARAMS):
     test_track = LAPTracker(data, teststore, params=params)
     # test_track.dist_function = lambda x: np.exp(- (x/ test_track.max_disp)**2)
     test_track.get_track(predict=False)
-    # print('''Number of segments after first pass: %d'''
-    #       % test_track.labels.size)
-    # test_track.reverse_track()
-    # test_track.get_track(predict=True)
-    # print('''Number of segments after 2nd pass: %d'''
-    #       % test_track.labels.size)
-    # test_track.reverse_track()
-    # test_track.get_track(predict=True)
-    # print('''Number of segments after 3rd pass: %d'''
-    #       % test_track.labels.size)
-    # test_track.close_merge_split(gap_close_only=True)
-    # print('''Number of segments after gap close: %d'''
-    #       % test_track.labels.size)
-    # test_track.close_merge_split(gap_close_only=False)
-    # print('''Number of segments after merge/split: %d'''
-    #       % test_track.labels.size)
+    print('''Number of segments after first pass: %d'''
+          % test_track.labels.size)
+    test_track.reverse_track()
+    test_track.get_track(predict=True)
+    print('''Number of segments after 2nd pass: %d'''
+          % test_track.labels.size)
+    test_track.reverse_track()
+    test_track.get_track(predict=True)
+    print('''Number of segments after 3rd pass: %d'''
+          % test_track.labels.size)
+    test_track.close_merge_split(gap_close_only=True)
+    print('''Number of segments after gap close: %d'''
+          % test_track.labels.size)
+    test_track.close_merge_split(gap_close_only=False)
+    print('''Number of segments after merge/split: %d'''
+          % test_track.labels.size)
     scores = {}
-    # for label in test_track.labels:
-    #     segment = test_track.get_segment(label)
-    #     good = segment['good_lbls']
-    #     bc = np.bincount(good.values.astype(np.int))
-    #     scores[label] = bc.max()/bc.sum() * 100
-    # global_score = np.mean([score for score in scores.values()])
-    # print('Global: %.3f' % global_score)
-    # print('Number of individual trajectories: %i'
-    #       % test_track.labels.shape[0])
+    for label in test_track.labels:
+        segment = test_track.get_segment(label)
+        good = segment['good_lbls']
+        bc = np.bincount(good.values.astype(np.int))
+        scores[label] = bc.max()/bc.sum() * 100
+    global_score = np.mean([score for score in scores.values()])
+    print('Global: %.3f' % global_score)
+    print('Number of individual trajectories: %i'
+          % test_track.labels.shape[0])
     return scores, test_track
     
 def make_data(n_part=5, n_times=100, noise=1e-10,
