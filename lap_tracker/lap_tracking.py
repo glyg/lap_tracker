@@ -76,7 +76,8 @@ class LAPTracker(object):
         '''Unique values of the level 1 index of `self.track`'''
         return self.track.index.get_level_values(1).unique()
 
-    def get_track(self, verbose=False, **kwargs):
+    def get_track(self, verbose=False, save=True, **kwargs):
+
         for key, value in kwargs.items():
             if key.startswith('gp_'):
                 self.gp_kwargs[key[3:]] = value
@@ -101,11 +102,19 @@ class LAPTracker(object):
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.names[1] = 'label'
 
-        # if self.store:
-        #     self.store.open()
-        #     self.store['sorted'] = self.track
-        #     self.store.close()
+        if save:
+            self.save_df(self.track, 'sorted')
 
+            
+    def save_df(self, dataframe, name):
+        try:
+            self.store.open()
+            self.store[name] = dataframe
+            self.store.close()
+        except AttributeError:
+            warnings.warn('''No store has been provided, can't save''')
+            
+    
     def reverse_track(self):
 
         self.track['rev_times'] = self.track.index.get_level_values(0)
@@ -119,7 +128,8 @@ class LAPTracker(object):
         self.track.index.names[0] = 't'
 
 
-    def close_merge_split(self, verbose=False, gap_close_only=True):
+    def close_merge_split(self, verbose=False,
+                          gap_close_only=True, save=True):
 
         self.cms_solver = CMSSolver(self, verbose=verbose)
 
@@ -174,7 +184,10 @@ class LAPTracker(object):
                 merge_time = seed[1]
                 branch_label = labels[idx_in]
                 self.merge(root_label, merge_time, branch_label)
+        if save:
+            self.save_df(self.track, 'sorted')
 
+                
 
     def split(self, root_label, split_time, branch_label):
         
