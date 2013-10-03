@@ -284,7 +284,7 @@ class LAPTracker(object):
         for lbl in self.labels:
             yield self.get_segment(lbl)
 
-    def show(self, ndims=2):
+    def show(self, ndims=2, **kwargs):
 
         if ndims == 3:
             fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
@@ -293,28 +293,30 @@ class LAPTracker(object):
         ax0, ax1 = axes
         for label in self.labels:
             if ndims == 3:
-                ax0, ax1 = self.show_segment_3D(label, axes)
+                ax0, ax1 = self.show_segment_3D(label, axes, **kwargs)
             else:
-                ax0, ax1 = self.show_segment_2D(label, axes)
+                ax0, ax1 = self.show_segment_2D(label, axes, **kwargs)
         return ax0, ax1
 
-    def show_3D(self):
-        return self.show(ndims=3)
+    def show_3D(self, **kwargs):
+        return self.show(ndims=3, **kwargs)
         
-    def show_segment_3D(self, label, axes=None):
+    def show_segment_3D(self, label, axes=None, coords=('x', 'y', 'z')):
+
         if axes is None:
             fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
         ax0, ax1 = axes
         segment = self.get_segment(label)
         
+        xs = segment[coords[0]].values
+        ys = segment[coords[1]].values
+        zs = segment[coords[2]].values
+        
         times = segment.index.get_level_values(0)
-        ax0.plot(times, segment['x'].values,
-                 zs=segment['y'].values)
-        colors = plt.cm.jet(segment['x'].values.size)
-        ax1.plot(segment['x'].values, segment['y'].values,
-                 zs=segment['z'].values)
-        ax1.scatter(segment['x'].values, segment['y'].values,
-                    segment['z'].values, c=colors)
+        ax0.plot(times, xs, ys)
+        colors = plt.cm.jet(xs.size)
+        ax1.plot(xs, ys, zs)
+        ax1.scatter(xs , ys, zs, c=colors)
         ax0.set_xlabel('Time (min)')
         ax0.set_ylabel(u'x position (µm)')
         ax0.set_zlabel(u'y position (µm)')
@@ -324,17 +326,19 @@ class LAPTracker(object):
 
         return ax0, ax1
 
-    def show_segment_2D(self, label, axes=None):
+    def show_segment_2D(self, label, axes=None, coords=('x', 'y')):
         if axes is None:
             fig, axes = plt.subplots(1, 2)
         ax0, ax1 = axes
         segment = self.get_segment(label)
-        
+        xs = segment[coords[0]].values
+        ys = segment[coords[1]].values
+
         times = segment.index
-        ax0.plot(times, segment['x'].values)
-        colors = plt.cm.jet(segment['x'].values.size)
-        ax1.plot(segment['x'].values, segment['y'].values)
-        ax1.scatter(segment['x'].values, segment['y'].values,
+        ax0.plot(times, xs)
+        colors = plt.cm.jet(xs.size)
+        ax1.plot(xs, ys)
+        ax1.scatter(xs, ys,
                     c=colors)
         ax0.set_xlabel('Time (min)')
         ax0.set_ylabel(u'x position (µm)')
@@ -357,7 +361,8 @@ class LAPTracker(object):
         rotated = self.pca.fit_transform(df[coords])
         for n, coord in enumerate(pca_coords):
             df[coord] = rotated[:, n]
-
+        return df
+            
 
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 

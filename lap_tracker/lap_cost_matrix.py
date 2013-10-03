@@ -27,10 +27,12 @@ class LAPSolver(object):
 
         self.tracker = tracker
         self.ndims = self.tracker.ndims
-        self.max_disp = self.tracker.max_disp
         self.dist_function = self.tracker.dist_function
         self.verbose = verbose
 
+    @property
+    def max_disp(self):
+        return self.tracker.max_disp
         
     def solve(self, *args, **kwargs):
 
@@ -43,10 +45,11 @@ class LAPSolver(object):
 
         distances = cdist(pos0, pos1)
         p90 = np.percentile(distances, PERCENTILE) * 1.05
-        distances[distances > self.max_disp] = np.nan
+        filtered_dist = distances.copy()
+        filtered_dist[distances > self.max_disp] = np.nan
         self.fillvalue = self.dist_function(p90)
-        self.costmat = self.dist_function(distances)
-        return self.costmat
+        costmat = self.dist_function(filtered_dist)
+        return costmat
         
     def get_lap_args(self, lapmat):
 
