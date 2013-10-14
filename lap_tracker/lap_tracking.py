@@ -346,18 +346,17 @@ class LAPTracker(object):
         ax1.set_ylabel(u'y position (µm)')
         return ax0, ax1
 
-    def do_pca(self, df=None, ndims=3):
+    def do_pca(self, df=None, ndims=3, coords=['x', 'y', 'z']):
 
         if not df:
             df = self.track
 
         self.pca = PCA()
+        pca_coords = [c+'_pca' for c in coords]
         if ndims == 2:
-            coords = ['x', 'y']
-            pca_coords = ['x_pca', 'y_pca']
-        elif ndims == 3:
-            coords = ['x', 'y', 'z']
-            pca_coords = ['x_pca', 'y_pca', 'z_pca']
+            coords = coords[:2]
+            pca_coords = pca_coords[:2]
+            
         rotated = self.pca.fit_transform(df[coords])
         for n, coord in enumerate(pca_coords):
             df[coord] = rotated[:, n]
