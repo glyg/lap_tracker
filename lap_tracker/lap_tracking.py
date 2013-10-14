@@ -100,8 +100,7 @@ class LAPTracker(object):
 
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.names[1] = 'label'
-
+        self.track.index.set_names(['t', 'label'], inplace=True)
         if save:
             self.save_df(self.track, 'sorted')
 
@@ -158,7 +157,7 @@ class LAPTracker(object):
         self.track['new_label'] = new_labels
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.names[1] = 'label'
+        self.track.index.set_names(['t', 'label'], inplace=True)
 
         
         ## First split and merge, because this changes
