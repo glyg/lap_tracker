@@ -190,9 +190,9 @@ def test_tracker(params=DEFAULT_PARAMS):
     # test_track.get_track(predict=True)
     # print('''Number of segments after 3rd pass: %d'''
     #       % test_track.labels.size)
-    test_track.close_merge_split(gap_close_only=True)
-    print('''Number of segments after gap close: %d'''
-          % test_track.labels.size)
+    # test_track.close_merge_split(gap_close_only=True)
+    # print('''Number of segments after gap close: %d'''
+    #       % test_track.labels.size)
     # test_track.close_merge_split(gap_close_only=False)
     # print('''Number of segments after merge/split: %d'''
     #       % test_track.labels.size)

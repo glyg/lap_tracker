@@ -164,8 +164,8 @@ class CMSSolver(LAPSolver):
                     continue
                 first1 = segment1.iloc[0]
                 dist01 = np.sqrt(((last0 - first1)**2).sum())
-                if dist01 > (delta_t * self.max_disp):
-                        continue
+                if (dist01 / delta_t) > self.max_disp:
+                    continue
                 gc_mat[i, j] = self.dist_function(dist01)
         pprogress(-1)
         return gc_mat

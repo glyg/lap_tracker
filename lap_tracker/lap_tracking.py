@@ -35,6 +35,7 @@ class LAPTracker(object):
 
     def __init__(self, track_df=None,
                  hdfstore=None,
+                 coords=['x', 'y', 'z'],
                  dist_function=np.square,
                  params=DEFAULTS,
                  verbose=True):
@@ -44,12 +45,15 @@ class LAPTracker(object):
         else:
             log.disabled = False
 
+        self.coordinates = coords
         self.track = track_df
         self.track.index.set_names(['t', 'label'], inplace=True)
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
         self.pos_solver = LAPSolver(self, verbose=verbose)
+
+
         
     def load_parameters(self, params):
         """
@@ -86,8 +90,8 @@ class LAPTracker(object):
                 self.__setattr__(key, value)
 
         log.info('Get track (predict=%s)' % str(self.predict))
-
-        self.track['new_label'] = self.track.index.get_level_values(1).astype(np.float)
+        old_label = self.track.index.get_level_values(1).values
+        self.track['new_label'] = old_label.astype(np.float)
         time_points = self.times
 
         n = len(time_points) - 1
@@ -133,7 +137,8 @@ class LAPTracker(object):
 
         self.cms_solver = CMSSolver(self, verbose=verbose)
 
-        in_links, out_links = self.cms_solver.solve(gap_close_only=gap_close_only)
+        in_links, out_links = self.cms_solver.solve(
+            gap_close_only=gap_close_only)
         n_segments = len(self.cms_solver.segments)
         n_seeds = len(self.cms_solver.seeds)
         sm_start = n_segments
@@ -173,7 +178,6 @@ class LAPTracker(object):
         for n, idx_in in enumerate(out_links[:n_segments]):
             ## gap closing
             if idx_in < n_segments:
-                print('close')
                 new_label  = unique_new[idx_in]
                 unique_new[n] = new_label
             elif idx_in >= sm_stop:
@@ -208,13 +212,13 @@ class LAPTracker(object):
 
     def position_track(self, t0, t1):
 
-        coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
-        pos1 = self.track.loc[t1][coordinates]
+        
+        pos1 = self.track.loc[t1][self.coordinates]
         
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
-            pos0 = self.track.loc[t0][coordinates]
+            pos0 = self.track.loc[t0][self.coordinates]
 
         in_links, out_links = self.pos_solver.solve(pos0, pos1)
 
@@ -231,8 +235,7 @@ class LAPTracker(object):
         """
         """
 
-        coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
-        pos0 = self.track.xs(t0)[coordinates]
+        pos0 = self.track.xs(t0)[self.coordinates]
         mse0 = pos0.copy() * 0.
 
         if np.where(self.times == t1) < 3:
@@ -248,13 +251,13 @@ class LAPTracker(object):
                 continue
             times = segment.index.get_level_values(0)
             if times.size < 3:
-                pos = segment[coordinates].loc[t0]
+                pos = segment[self.coordinates].loc[t0]
                 mse = pos * 0
             else:
                 pred = [_predict_coordinate(segment, coord, times,
                                             t1, self.sigma,
                                             **self.gp_kwargs)
-                        for coord in coordinates]
+                        for coord in self.coordinates]
                 pos = [p[0] for p in pred]
                 mse = [p[1] for p in pred]
             pos0.ix[lbl] = pos
@@ -352,7 +355,12 @@ class LAPTracker(object):
         for n, coord in enumerate(pca_coords):
             df[coord] = rotated[:, n]
         return df
-            
+
+    @property
+    def colors(self):
+        colors = 'r,g,b,y,orange,purple,magenta,cyan'
+        colors = colors.split(',') * (self.labels.size // 8  + 1)
+        return dict([(lbl, c) for c, lbl in zip(colors, self.labels)])
 
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
