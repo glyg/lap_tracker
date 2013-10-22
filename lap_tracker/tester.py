@@ -137,6 +137,37 @@ def generate_merge(size, noise, merge_time):
     return t_merge
 
 
+
+def generate_merge_split(size, noise, merge_time):
+
+    t_split0 = generate_split(size, noise, merge_time)
+    t_merge_split = generate_merge(size, noise, merge_time)
+
+    t = t_merge_split.track.index.get_level_values('t')
+    t += t_split0.track.index.get_level_values('t')[-1] + 1
+
+    t_merge_split.track['new_t'] = t
+    t_merge_split.track.set_index('new_t', drop=True,
+                                  inplace=True, append=True)
+    t_merge_split.track.reset_index(level='t', drop=True, inplace=True)
+    t_merge_split.track = t_merge_split.track.swaplevel('new_t', 'label')
+
+    tmp_label = t_merge_split.track.index.get_level_values('label').values
+    tmp_label[tmp_label == 0] = 2
+    tmp_label[tmp_label == 1] = 3
+    #tmp_label[tmp_label == -1] = 1
+    t_merge_split.track['tmp_label'] = tmp_label
+    t_merge_split.track.set_index('tmp_label', drop=True,
+                                  inplace=True, append=True)
+    t_merge_split.track.reset_index(level='label', drop=True, inplace=True)
+    t_merge_split.track.index.set_names(['t', 'label'])
+
+    t_merge_split.track.index.set_names(['t', 'label'])
+    t_merge_split.track = pd.concat([t_split0.track, t_merge_split.track])
+    return t_merge_split
+
+
+
 def test_tracker(params=DEFAULT_PARAMS):
 
     n_part = params['n_part']
@@ -148,7 +179,6 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params=params)
-    # test_track.dist_function = lambda x: np.exp(- (x/ test_track.max_disp)**2)
     test_track.get_track(predict=False)
     print('''Number of segments after first pass: %d'''
           % test_track.labels.size)
@@ -160,9 +190,9 @@ def test_tracker(params=DEFAULT_PARAMS):
     # test_track.get_track(predict=True)
     # print('''Number of segments after 3rd pass: %d'''
     #       % test_track.labels.size)
-    # test_track.close_merge_split(gap_close_only=True)
-    # print('''Number of segments after gap close: %d'''
-    #       % test_track.labels.size)
+    test_track.close_merge_split(gap_close_only=True)
+    print('''Number of segments after gap close: %d'''
+          % test_track.labels.size)
     # test_track.close_merge_split(gap_close_only=False)
     # print('''Number of segments after merge/split: %d'''
     #       % test_track.labels.size)

@@ -45,6 +45,7 @@ class LAPTracker(object):
             log.disabled = False
 
         self.track = track_df
+        self.track.index.set_names(['t', 'label'], inplace=True)
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
@@ -86,7 +87,7 @@ class LAPTracker(object):
 
         log.info('Get track (predict=%s)' % str(self.predict))
 
-        self.track['new_label'] = self.track.index.get_level_values(1)
+        self.track['new_label'] = self.track.index.get_level_values(1).astype(np.float)
         time_points = self.times
 
         n = len(time_points) - 1
@@ -124,7 +125,7 @@ class LAPTracker(object):
                              drop='True')
         self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
-        self.track.index.names[0] = 't'
+        self.track.index.set_names(['t', 'label'])
 
 
     def close_merge_split(self, verbose=False,
@@ -138,28 +139,6 @@ class LAPTracker(object):
         sm_start = n_segments
         sm_stop = n_segments + n_seeds if not gap_close_only else n_segments
 
-
-        ## Now for gap closing
-        old_labels = self.track.index.get_level_values(1).values
-        new_labels = old_labels.copy()
-        unique_old = np.unique(old_labels)
-        unique_new = np.unique(new_labels)
-        for n, idx_in in enumerate(out_links[:n_segments]):
-            ## gap closing
-            if idx_in < n_segments:
-                new_label  = unique_new[idx_in]
-                unique_new[n] = new_label
-            elif idx_in >= sm_stop:
-                unique_new[n] = unique_new.max() + 1
-        for old, new in zip(unique_old, unique_new):
-            new_labels[old_labels == old] = new
-
-        self.track['new_label'] = new_labels
-        self.track.set_index('new_label', append=True, inplace=True)
-        self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.set_names(['t', 'label'], inplace=True)
-
-        
         ## First split and merge, because this changes
         ## data length, without changing the unique labels
         
@@ -186,7 +165,26 @@ class LAPTracker(object):
         if save:
             self.save_df(self.track, 'sorted')
 
-                
+        ## Now for gap closing
+        old_labels = self.track.index.get_level_values(1).values
+        new_labels = old_labels.copy()
+        unique_old = np.unique(old_labels)
+        unique_new = np.unique(new_labels)
+        for n, idx_in in enumerate(out_links[:n_segments]):
+            ## gap closing
+            if idx_in < n_segments:
+                print('close')
+                new_label  = unique_new[idx_in]
+                unique_new[n] = new_label
+            elif idx_in >= sm_stop:
+                unique_new[n] = unique_new.max() + 1
+        for old, new in zip(unique_old, unique_new):
+            new_labels[old_labels == old] = new
+
+        self.track['new_label'] = new_labels
+        self.track.set_index('new_label', append=True, inplace=True)
+        self.track.reset_index(level='label', drop=True, inplace=True)
+        self.track.index.set_names(['t', 'label'], inplace=True)
 
     def split(self, root_label, split_time, branch_label):
         
@@ -212,28 +210,22 @@ class LAPTracker(object):
 
         coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
         pos1 = self.track.loc[t1][coordinates]
+        
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
             pos0 = self.track.loc[t0][coordinates]
 
-        try:
-            in_links, out_links = self.pos_solver.solve(pos0, pos1)
-        except AssertionError:
-            warnings.warn('''Someting's' amiss between points %s and %s'''
-                          % (t0, t1), RuntimeWarning)
-            for n in range(pos1.shape[0]):
-                new_label = self.track['new_label'].max() + 1
-                self.track.xs(t1)['new_label'].iloc[n] = new_label
-            return
+        in_links, out_links = self.pos_solver.solve(pos0, pos1)
 
+        
         for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
-                new_label = self.track['new_label'].max() + 1
+                new_label = self.track['new_label'].max() + 1.
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
-            self.track.loc[t1]['new_label'].iloc[n] = new_label
+            self.track.loc[t1, 'new_label'].iloc[n] = new_label
     
     def predict_positions(self, t0, t1):
         """

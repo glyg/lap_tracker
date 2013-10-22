@@ -44,10 +44,10 @@ class LAPSolver(object):
     def get_costmat(self, pos0, pos1):
 
         distances = cdist(pos0, pos1)
-        p90 = np.percentile(distances, PERCENTILE) * 1.05
+        # p90 = np.percentile(distances, PERCENTILE) * 1.05
         filtered_dist = distances.copy()
         filtered_dist[distances > self.max_disp] = np.nan
-        self.fillvalue = self.dist_function(p90)
+        # self.fillvalue = self.dist_function(p90)
         costmat = self.dist_function(filtered_dist)
         return costmat
         
@@ -78,7 +78,7 @@ class LAPSolver(object):
             raise ValueError('''Only 2d and 3d data are supported''')
 
         lapmat = np.zeros((num_in + num_out,
-                                num_in + num_out)) * np.nan
+                           num_in + num_out)) * np.nan
         self.costmat = self.get_costmat(pos0, pos1)
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
@@ -138,7 +138,8 @@ class CMSSolver(LAPSolver):
             self.segments = [segment[['x', 'y', 'z']]
                              for segment in self.tracker.segments()]
         try:
-            self.intensities = [segment['I'] for segment in self.tracker.segments()]
+            self.intensities = [segment['I']
+                                for segment in self.tracker.segments()]
         except KeyError:
             self.intensities = [(segment['x'] + 1) / (segment['x'] + 1)
                                 for segment in self.segments]
