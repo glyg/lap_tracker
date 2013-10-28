@@ -108,6 +108,8 @@ class LAPTracker(object):
         self.track.index.set_names(['t', 'label'], inplace=True)
         if save:
             self.save_df(self.track, 'sorted')
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
 
             
     def save_df(self, dataframe, name):
@@ -167,8 +169,6 @@ class LAPTracker(object):
                 merge_time = seed[1]
                 branch_label = labels[idx_in]
                 self.merge(root_label, merge_time, branch_label)
-        if save:
-            self.save_df(self.track, 'sorted')
 
         ## Now for gap closing
         old_labels = self.track.index.get_level_values(1).values
@@ -189,7 +189,13 @@ class LAPTracker(object):
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
         self.track.index.set_names(['t', 'label'], inplace=True)
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
+        if save:
+            self.save_df(self.track, 'sorted')
 
+
+        
     def split(self, root_label, split_time, branch_label):
         
         root_segment = self.get_segment(root_label) 

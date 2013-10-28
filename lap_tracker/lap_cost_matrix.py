@@ -304,33 +304,35 @@ class CMSSolver(LAPSolver):
         self.merge_dic = self.get_merging()
         self.seeds = self.get_cms_seeds()
         n_seeds = len(self.seeds)
-
-        self.split_mat = np.zeros((len(self.seeds),
-                                   len(self.segments))) * np.nan
-        self.merge_mat = self.split_mat.copy().T
-        for key, weight in self.split_dic.items():
-            i = key[0]
-            j = self.seeds.index(key[1])
-            self.split_mat[j, i] = weight
-        for key, weight in self.merge_dic.items():
-            i = key[0]
-            j = self.seeds.index(key[1])
-            self.merge_mat[i, j] = weight
+        if not gap_close_only:
+            self.split_mat = np.zeros((len(self.seeds),
+                                       len(self.segments))) * np.nan
+            self.merge_mat = self.split_mat.copy().T
+            for key, weight in self.split_dic.items():
+                i = key[0]
+                j = self.seeds.index(key[1])
+                self.split_mat[j, i] = weight
+            for key, weight in self.merge_dic.items():
+                i = key[0]
+                j = self.seeds.index(key[1])
+                self.merge_mat[i, j] = weight
 
         sm_start = n_segments
         sm_stop = n_segments + n_seeds
         lapmat = np.zeros((n_segments * 2 + n_seeds,
                            n_segments * 2 + n_seeds)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
-        lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
-        lapmat[sm_start:sm_stop, :n_segments] = self.split_mat
 
-        alt_merge_mat, alt_split_mat = self.get_alt_merge_split()
+        if not gap_close_only:
+            lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
+            lapmat[sm_start:sm_stop, :n_segments] = self.split_mat
 
-        # lapmat[sm_start:sm_stop, sm_stop:] = alt_split_mat
-        # lapmat[sm_stop:, sm_start:sm_stop] = alt_merge_mat
-        lapmat[sm_start:sm_stop, sm_stop:] = alt_merge_mat.T
-        lapmat[sm_stop:, sm_start:sm_stop] = alt_split_mat.T
+            alt_merge_mat, alt_split_mat = self.get_alt_merge_split()
+
+            # lapmat[sm_start:sm_stop, sm_stop:] = alt_split_mat
+            # lapmat[sm_stop:, sm_start:sm_stop] = alt_merge_mat
+            lapmat[sm_start:sm_stop, sm_stop:] = alt_merge_mat.T
+            lapmat[sm_stop:, sm_start:sm_stop] = alt_split_mat.T
 
         m_lapmat = ma.masked_invalid(lapmat)
         if np.all(np.isnan(lapmat)):
@@ -338,7 +340,7 @@ class CMSSolver(LAPSolver):
             warnings.warn('all costs are invalid')
         else:
             terminate_cost = init_cost = np.percentile(m_lapmat.compressed(),
-                                                       PERCENTILE) * 1.1
+                                                       PERCENTILE)
             
         lapmat[sm_stop:, :n_segments] = self.get_deathmat(n_segments,
                                                           terminate_cost)
