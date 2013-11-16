@@ -8,7 +8,6 @@ from __future__ import print_function
 
 import numpy as np
 import pandas as pd
-import matplotlib.pylab as plt
 
 from .lap_tracking import LAPTracker
 

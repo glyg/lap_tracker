@@ -9,8 +9,6 @@ from __future__ import print_function
 import logging
 
 import numpy as np
-import matplotlib.pylab as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.gaussian_process import GaussianProcess
 from sklearn.decomposition import PCA
@@ -242,6 +240,9 @@ class LAPTracker(object):
 
     def show_3D(self):
 
+        import matplotlib.pylab as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
         ax0, ax1 = axes
         for label in self.labels:
@@ -249,6 +250,10 @@ class LAPTracker(object):
         return ax0, ax1
 
     def show_segment(self, label, axes=None):
+
+        import matplotlib.pylab as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         if axes is None:
             fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
         ax0, ax1 = axes
