@@ -131,7 +131,9 @@ class LAPTracker(object):
                              drop='True')
         self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
-        self.track.index.set_names(['t', 'label'])
+        self.track.index.set_names(['t', 'label'], inplace=True)
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
 
 
     def close_merge_split(self, verbose=False,
@@ -139,7 +141,7 @@ class LAPTracker(object):
 
         self.cms_solver = CMSSolver(self, verbose=verbose)
 
-        in_links, out_links = self.cms_solver.solve(
+        in_links, out_links, costs = self.cms_solver.solve(
             gap_close_only=gap_close_only)
         n_segments = len(self.cms_solver.segments)
         n_seeds = len(self.cms_solver.seeds)
@@ -226,17 +228,27 @@ class LAPTracker(object):
         else:
             pos0 = self.track.loc[t0][self.coordinates]
 
-        in_links, out_links = self.pos_solver.solve(pos0, pos1)
+        in_links, out_links, costs = self.pos_solver.solve(pos0, pos1)
 
-        
+        ## From TFA (Supplementary note 3):
+        ## These alternative costs for “no linking” (b and d in
+        ## Fig. 1b) were inferred from the tracking information available
+        ## up to the source frame t. They were taken as 1.05 × the
+        ## maximal cost of all previous links
         for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
+            idx_out = in_links[n]
             if idx_in >= pos0.shape[0]:
                 # new segment
                 new_label = self.track['new_label'].max() + 1.
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
+                self.pos_solver.max_cost = max(
+                    self.pos_solver.costmat[idx_out, idx_in],
+                    self.pos_solver.max_cost)
             self.track.loc[t1, 'new_label'].iloc[n] = new_label
-    
+        print(self.pos_solver.max_cost)
+
+            
     def predict_positions(self, t0, t1):
         """
         """
@@ -346,13 +358,14 @@ class LAPTracker(object):
         ax1.set_ylabel(u'y position (µm)')
         return ax0, ax1
 
-    def do_pca(self, df=None, ndims=3, coords=['x', 'y', 'z']):
+    def do_pca(self, df=None, ndims=3,
+               coords=['x', 'y', 'z'], suffix='_pca'):
 
         if not df:
             df = self.track
 
         self.pca = PCA()
-        pca_coords = [c+'_pca' for c in coords]
+        pca_coords = [c+suffix  for c in coords]
         if ndims == 2:
             coords = coords[:2]
             pca_coords = pca_coords[:2]

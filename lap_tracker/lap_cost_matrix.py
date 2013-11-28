@@ -29,7 +29,9 @@ class LAPSolver(object):
         self.ndims = self.tracker.ndims
         self.dist_function = self.tracker.dist_function
         self.verbose = verbose
-
+        ## Initial guess
+        self.max_cost = self.dist_function(self.tracker.max_disp/2.)
+        
     @property
     def max_disp(self):
         return self.tracker.max_disp
@@ -39,20 +41,22 @@ class LAPSolver(object):
         lapmat = self.get_lapmat(*args, **kwargs)
         idxs_in, idxs_out, costs = self.get_lap_args(lapmat)
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
-        return in_links, out_links
+        
+        
+        return in_links, out_links, costs
         
     def get_costmat(self, pos0, pos1):
 
         distances = cdist(pos0, pos1)
-        # p90 = np.percentile(distances, PERCENTILE) * 1.05
         filtered_dist = distances.copy()
         filtered_dist[distances > self.max_disp] = np.nan
         # self.fillvalue = self.dist_function(p90)
         costmat = self.dist_function(filtered_dist)
+        
         return costmat
         
     def get_lap_args(self, lapmat):
-
+        
         idxs_in, idxs_out = np.mgrid[:lapmat.shape[0],
                                      :lapmat.shape[1]]
         idxs_in = idxs_in.flatten()
@@ -82,12 +86,8 @@ class LAPSolver(object):
         self.costmat = self.get_costmat(pos0, pos1)
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
-        if np.all(np.isnan(self.costmat)):
-            birthcost = deathcost = 1.
-        else:
-            birthcost = deathcost = np.percentile(m_costmat.compressed(),
-                                                  PERCENTILE) * 1.05
-        
+        birthcost = deathcost = self.max_cost * 1.05
+
         lapmat[num_in:, :num_out] = self.get_birthmat(num_out, birthcost)
         lapmat[:num_in, num_out:] = self.get_deathmat(num_in, deathcost)
         m_lapmat = ma.masked_invalid(lapmat)
@@ -167,6 +167,7 @@ class CMSSolver(LAPSolver):
                 if (dist01 / delta_t) > self.max_disp:
                     continue
                 gc_mat[i, j] = self.dist_function(dist01)
+
         pprogress(-1)
         return gc_mat
 

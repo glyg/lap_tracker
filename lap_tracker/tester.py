@@ -182,14 +182,17 @@ def test_tracker(params=DEFAULT_PARAMS):
     test_track.get_track(predict=False)
     print('''Number of segments after first pass: %d'''
           % test_track.labels.size)
-    # test_track.reverse_track()
-    # test_track.get_track(predict=True)
-    # print('''Number of segments after 2nd pass: %d'''
-    #       % test_track.labels.size)
-    # test_track.reverse_track()
-    # test_track.get_track(predict=True)
-    # print('''Number of segments after 3rd pass: %d'''
-    #       % test_track.labels.size)
+    print(test_track.pos_solver.max_cost)
+    test_track.reverse_track()
+    test_track.get_track(predict=False)
+    print('''Number of segments after 2nd pass: %d'''
+          % test_track.labels.size)
+    print(test_track.pos_solver.max_cost)
+    test_track.reverse_track()
+    test_track.get_track(predict=False)
+    print(test_track.pos_solver.max_cost)
+    print('''Number of segments after 3rd pass: %d'''
+          % test_track.labels.size)
     # test_track.close_merge_split(gap_close_only=True)
     # print('''Number of segments after gap close: %d'''
     #       % test_track.labels.size)
@@ -233,10 +236,10 @@ def make_data(n_part=5, n_times=100, noise=1e-10,
     times = np.arange(n_times)
     phases = np.random.random(n_part) * 2 * np.pi
     initial_positions = np.random.random((n_part, 3))
-    labels = range(n_part) * n_times
-    time_stamps = np.array([range(n_times)] * n_part).T.flatten()
-    tuples = [(t, lbl) for t, lbl in zip(time_stamps, labels)]
-    index = pd.MultiIndex.from_tuples(tuples, names=('t', 'label'))
+    time_stamps, labels = np.mgrid[:n_times, :n_part]
+    index = pd.MultiIndex.from_arrays([time_stamps.flatten(),
+                                       labels.flatten()],
+                                      names=('t', 'label'))
     all_pos = np.zeros((n_times * n_part, 3))
     for n in range(n_part):
         phase = phases[n]
