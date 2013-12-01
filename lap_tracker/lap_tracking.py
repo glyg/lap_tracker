@@ -118,7 +118,6 @@ class LAPTracker(object):
             self.store.close()
         except AttributeError:
             warnings.warn('''No store has been provided, can't save''')
-            
     
     def reverse_track(self):
 
@@ -126,14 +125,13 @@ class LAPTracker(object):
         self.track['rev_times'] = (self.track['rev_times'].iloc[-1]
                                    - self.track['rev_times'])
         self.track = self.track.iloc[::-1]
-        self.track.set_index('rev_times', append=True, inplace=True,
-                             drop='True')
+        self.track.set_index('rev_times', append=True,
+                             inplace=True, drop='True')
         self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
         self.track.index.set_names(['t', 'label'], inplace=True)
         self.track.sortlevel('label', inplace=True)
         self.track.sortlevel('t', inplace=True)
-
 
     def close_merge_split(self, verbose=False,
                           gap_close_only=True, save=True):
@@ -194,8 +192,6 @@ class LAPTracker(object):
         self.track.sortlevel('t', inplace=True)
         if save:
             self.save_df(self.track, 'sorted')
-
-
         
     def split(self, root_label, split_time, branch_label):
         
@@ -218,7 +214,6 @@ class LAPTracker(object):
         self.track.sortlevel(0, inplace=True)
 
     def position_track(self, t0, t1):
-
         
         pos1 = self.track.loc[t1][self.coordinates]
         
@@ -243,19 +238,18 @@ class LAPTracker(object):
                 if self.pos_solver.guessed:
                     print('Getting first value for max cost \n'
                     'guessed value: %.3f' % self.pos_solver.max_cost)
-
-                    self.pos_solver.max_cost = self.pos_solver.lapmat[idx_out, idx_in]
+                    self.pos_solver.max_cost = self.pos_solver.lapmat[idx_in,
+                                                                      idx_out]
                     self.pos_solver.guessed = False
                     print('New value %.3f' % self.pos_solver.max_cost)
                 else:
-                    new, prev = (self.pos_solver.lapmat[idx_out, idx_in],
+                    new, prev = (self.pos_solver.lapmat[idx_in, idx_out],
                                  self.pos_solver.max_cost)
-                    self.pos_solver.max_cost = max(prev, new)
+                    self.pos_solver.max_cost = max(new, prev)
                     if self.pos_solver.max_cost == new:
-                        print('New value for max cost at time %i: %.4f' % (t0, new))
+                        print('New value for max cost at time %i: %.4f'
+                              % (t0, new))
             self.track.loc[t1, 'new_label'].iloc[idx_out] = new_label
-        
-
             
     def predict_positions(self, t0, t1):
         """
@@ -371,7 +365,6 @@ class LAPTracker(object):
 
         if not df:
             df = self.track
-
         self.pca = PCA()
         pca_coords = [c+suffix  for c in coords]
         if ndims == 2:

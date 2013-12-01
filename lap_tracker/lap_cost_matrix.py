@@ -30,7 +30,7 @@ class LAPSolver(object):
         self.dist_function = self.tracker.dist_function
         self.verbose = verbose
         ## Initial guess
-        self.max_cost = self.dist_function(self.tracker.max_disp*10)
+        self.max_cost = self.dist_function(self.tracker.max_disp)
         self.guessed = True
         
     @property

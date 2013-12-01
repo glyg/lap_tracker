@@ -179,6 +179,7 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params=params)
+    #test_track.dist_function = lambda x:x
     test_track.get_track(predict=False)
     print('''Number of segments after first pass: %d'''
           % test_track.labels.size)
