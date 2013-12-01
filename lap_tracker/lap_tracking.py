@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
@@ -235,18 +234,27 @@ class LAPTracker(object):
         ## Fig. 1b) were inferred from the tracking information available
         ## up to the source frame t. They were taken as 1.05 × the
         ## maximal cost of all previous links
-        for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
-            idx_out = in_links[n]
+        for idx_out, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
                 new_label = self.track['new_label'].max() + 1.
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
-                self.pos_solver.max_cost = max(
-                    self.pos_solver.costmat[idx_out, idx_in],
-                    self.pos_solver.max_cost)
-            self.track.loc[t1, 'new_label'].iloc[n] = new_label
-        print(self.pos_solver.max_cost)
+                if self.pos_solver.guessed:
+                    print('Getting first value for max cost \n'
+                    'guessed value: %.3f' % self.pos_solver.max_cost)
+
+                    self.pos_solver.max_cost = self.pos_solver.lapmat[idx_out, idx_in]
+                    self.pos_solver.guessed = False
+                    print('New value %.3f' % self.pos_solver.max_cost)
+                else:
+                    new, prev = (self.pos_solver.lapmat[idx_out, idx_in],
+                                 self.pos_solver.max_cost)
+                    self.pos_solver.max_cost = max(prev, new)
+                    if self.pos_solver.max_cost == new:
+                        print('New value for max cost at time %i: %.4f' % (t0, new))
+            self.track.loc[t1, 'new_label'].iloc[idx_out] = new_label
+        
 
             
     def predict_positions(self, t0, t1):

@@ -30,7 +30,8 @@ class LAPSolver(object):
         self.dist_function = self.tracker.dist_function
         self.verbose = verbose
         ## Initial guess
-        self.max_cost = self.dist_function(self.tracker.max_disp/2.)
+        self.max_cost = self.dist_function(self.tracker.max_disp*10)
+        self.guessed = True
         
     @property
     def max_disp(self):
@@ -38,8 +39,8 @@ class LAPSolver(object):
         
     def solve(self, *args, **kwargs):
 
-        lapmat = self.get_lapmat(*args, **kwargs)
-        idxs_in, idxs_out, costs = self.get_lap_args(lapmat)
+        self.lapmat = self.get_lapmat(*args, **kwargs)
+        idxs_in, idxs_out, costs = self.get_lap_args()
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
         
         
@@ -55,14 +56,14 @@ class LAPSolver(object):
         
         return costmat
         
-    def get_lap_args(self, lapmat):
+    def get_lap_args(self):
         
-        idxs_in, idxs_out = np.mgrid[:lapmat.shape[0],
-                                     :lapmat.shape[1]]
+        idxs_in, idxs_out = np.mgrid[:self.lapmat.shape[0],
+                                     :self.lapmat.shape[1]]
         idxs_in = idxs_in.flatten()
         idxs_out = idxs_out.flatten()
 
-        flatmat = lapmat.flatten()
+        flatmat = self.lapmat.flatten()
         finite_flat = np.isfinite(flatmat)
         if not any(finite_flat):
             warnings.warn('No finite element in the LAP matrix')
