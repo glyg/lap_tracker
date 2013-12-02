@@ -153,17 +153,15 @@ class LAPTracker(object):
             ## splitting
             if n_segments <= idx_in < sm_stop:
                 seed = self.cms_solver.seeds[idx_in - sm_start]
-                print('split seed %s' % str(seed)) 
                 root_label = labels[seed[0]]
                 split_time = seed[1]
                 branch_label = labels[n]
                 self.split(root_label, split_time, branch_label)
-
+                
         for n, idx_in in enumerate(out_links[sm_start:sm_stop]):
             ## merging
             if idx_in < n_segments:
                 seed = self.cms_solver.seeds[n]
-                print('merge seed %s' % str(seed)) 
                 root_label = labels[seed[0]]
                 merge_time = seed[1]
                 branch_label = labels[idx_in]
@@ -179,6 +177,8 @@ class LAPTracker(object):
             if idx_in < n_segments:
                 new_label  = unique_new[idx_in]
                 unique_new[n] = new_label
+                log.info('Gap cosing for segment %i'
+                         % new_label)
             elif idx_in >= sm_stop:
                 unique_new[n] = unique_new.max() + 1
         for old, new in zip(unique_old, unique_new):
@@ -194,7 +194,8 @@ class LAPTracker(object):
             self.save_df(self.track, 'sorted')
         
     def split(self, root_label, split_time, branch_label):
-        
+
+        log.info('''Splitting segment %i @ time %i ''' % (int(root_label), split_time))
         root_segment = self.get_segment(root_label) 
         duplicated = root_segment.loc[:split_time].copy()
         dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
@@ -205,6 +206,7 @@ class LAPTracker(object):
 
     def merge(self, root_label, merge_time, branch_label):
 
+        log.info('''Merge root %i @ time %i ''' % (int(root_label), merge_time))
         root_segment = self.get_segment(root_label) 
         duplicated = root_segment.loc[merge_time:].copy()
         dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 

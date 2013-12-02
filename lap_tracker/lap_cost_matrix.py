@@ -129,7 +129,7 @@ class LAPSolver(object):
 
     def get_lowerright(self):
         
-        lowerright = self.costmat.T
+        lowerright = self.costmat.T.copy()
         lowerright[np.isfinite(lowerright)] = self.fillvalue
         return lowerright
 
@@ -274,39 +274,38 @@ class CMSSolver(LAPSolver):
         
     def get_alt_merge_split(self):
         
-        alt_merge_mat = np.zeros((len(self.segments),
+        alt_merge_mat = np.zeros((len(self.seeds),
                                   len(self.seeds))) * np.nan
-        alt_split_mat = alt_merge_mat.copy().T
-        avg_disps = np.array([np.sqrt((segment.diff().dropna()*2
+        alt_split_mat = alt_merge_mat.copy()
+        avg_disps = np.array([np.sqrt((segment.diff().dropna()**2
                                    ).sum(axis=1)).mean(axis=0)
                               for segment in self.segments])
         global_mean = avg_disps[np.isfinite(avg_disps)].mean()
         avg_disps[np.isnan(avg_disps)] = global_mean
         avg_disps = self.dist_function(avg_disps)
-
+        
         for n, seed in enumerate(self.seeds):
             seg_index = seed[0]
             pos_index = seed[1]
             #intensity previous to merge/split
             intensity = self.intensities[seg_index].loc[:pos_index]
             if intensity.shape[0] == 1:
-                i0, i1 = 1., 1.
+                merge_factor = split_factor = 1.
             else:
                 i0, i1 = intensity.iloc[-2:]
-            if i1 / i0 > 1 :
-                merge_factor = i1 / i0
-                split_factor = (i0 / i1)**-2
-            else:
-                merge_factor = (i1 / i0)**-2
-                split_factor = i0 / i1
-            for key in self.merge_dic.keys():
-                if key[1] == seed:
-                    alt_merge_mat[key[0], n] = (avg_disps[seg_index]
-                                                * merge_factor)
-            for key in self.split_dic.keys():
-                if key[1] == seed:
-                    alt_split_mat[n, key[0]] = (avg_disps[seg_index]
-                                                * split_factor)
+                if i1 / i0 > 1 :
+                    merge_factor = i1 / i0
+                    split_factor = (i0 / i1)**-2
+                else:
+                    merge_factor = (i1 / i0)**-2
+                    split_factor = i0 / i1
+                    
+            alt_merge_mat[n, n] = (avg_disps[seg_index]
+                                   * merge_factor) * 10.
+            # for key in self.split_dic.keys():
+            #     if key[1] == seed:
+            alt_split_mat[n, n] = (avg_disps[seg_index]
+                                   * split_factor) * 10.
         return alt_merge_mat, alt_split_mat
 
     def get_lapmat(self, gap_close_only=False,
@@ -320,7 +319,6 @@ class CMSSolver(LAPSolver):
         n_segments = len(self.segments)
         
         self.gc_mat = self.get_gap_closing()
-        self.costmat = self.gc_mat
         self.split_dic = self.get_splitting()
         self.merge_dic = self.get_merging()
         self.seeds = self.get_cms_seeds()
@@ -340,20 +338,25 @@ class CMSSolver(LAPSolver):
 
         sm_start = n_segments
         sm_stop = n_segments + n_seeds
-        lapmat = np.zeros((n_segments * 2 + n_seeds,
-                           n_segments * 2 + n_seeds)) * np.nan
+        
+        ### Looking at figure 1c from TFA one woulfd think that
+        ### the matrix shape is (n_segments + n_seeds + n_segments, n_segments * 2 + n_seeds)
+        ### Actually, the upper right and lower left blocks have shape (n_segments+ n_seeds)
+        ### to give space for alternate costs d' and b'. So overall shape is
+        ### ((n_segments + n_seeds)*2, (n_segments + n_seeds)*2) ....
+        size = (n_segments+ n_seeds) * 2
+        lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
 
         if not gap_close_only:
             lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
+
             lapmat[sm_start:sm_stop, :n_segments] = self.split_mat
-
+            
             alt_merge_mat, alt_split_mat = self.get_alt_merge_split()
-
-            # lapmat[sm_start:sm_stop, sm_stop:] = alt_split_mat
-            # lapmat[sm_stop:, sm_start:sm_stop] = alt_merge_mat
-            lapmat[sm_start:sm_stop, sm_stop:] = alt_merge_mat.T
-            lapmat[sm_stop:, sm_start:sm_stop] = alt_split_mat.T
+            
+            lapmat[sm_start:sm_stop, -n_seeds:] = alt_split_mat
+            lapmat[-n_seeds:, sm_start:sm_stop] = alt_merge_mat
 
         m_lapmat = ma.masked_invalid(lapmat)
         if np.all(np.isnan(lapmat)):
@@ -361,24 +364,25 @@ class CMSSolver(LAPSolver):
             warnings.warn('all costs are invalid')
         else:
             terminate_cost = init_cost = np.percentile(m_lapmat.compressed(),
-                                                       PERCENTILE)
-            
-        lapmat[sm_stop:, :n_segments] = self.get_deathmat(n_segments,
-                                                          terminate_cost)
-        lapmat[:n_segments, sm_stop:] = self.get_birthmat(n_segments,
-                                                          init_cost)
+                                                       PERCENTILE) * 4.
+        lapmat[:n_segments, sm_stop:-n_seeds] = self.get_birthmat(n_segments,
+                                                                  init_cost)
+        lapmat[sm_stop:-n_seeds, :n_segments] = self.get_deathmat(n_segments,
+                                                                  terminate_cost)
+        m_lapmat = ma.masked_invalid(lapmat)
         self.fillvalue = m_lapmat.max() * 1.05
+        self.costmat = lapmat[:sm_stop, :sm_stop]
         lapmat[sm_stop:, sm_stop:] = self.get_lowerright()
         if gap_close_only:
             red_lapmat = np.zeros((n_segments * 2, n_segments *2))
             red_lapmat[:n_segments, :n_segments] = lapmat[:n_segments,
                                                           :n_segments]
-            red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:,
+            red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:-n_seeds,
                                                           :n_segments]
             red_lapmat[:n_segments, n_segments:] = lapmat[:n_segments,
-                                                          sm_stop:]
-            red_lapmat[n_segments:, n_segments:] = lapmat[sm_stop:,
-                                                          sm_stop:]
+                                                          sm_stop:-n_seeds]
+            red_lapmat[n_segments:, n_segments:] = lapmat[sm_stop:-n_seeds,
+                                                          sm_stop:-n_seeds]
             return red_lapmat
         return lapmat
 
