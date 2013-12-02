@@ -179,18 +179,25 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params=params)
-    #test_track.dist_function = lambda x:x
+    test_track.dist_function = lambda x:x
+
+    ## Straight 1
     test_track.get_track(predict=False)
     print('''Number of segments after first pass: %d'''
           % test_track.labels.size)
+
+    ## Reversed
     test_track.reverse_track()
     test_track.get_track(predict=False)
     print('''Number of segments after 2nd pass: %d'''
           % test_track.labels.size)
     test_track.reverse_track()
+
+    ### Straight 2
     test_track.get_track(predict=False)
     print('''Number of segments after 3rd pass: %d'''
           % test_track.labels.size)
+
     # test_track.close_merge_split(gap_close_only=True)
     # print('''Number of segments after gap close: %d'''
     #       % test_track.labels.size)

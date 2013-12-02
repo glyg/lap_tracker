@@ -44,7 +44,7 @@ class LAPSolver(object):
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
         
         
-        return in_links, out_links, costs
+        return in_links, out_links
         
     def get_costmat(self, pos0, pos1):
 
@@ -87,8 +87,27 @@ class LAPSolver(object):
         self.costmat = self.get_costmat(pos0, pos1)
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
-        birthcost = deathcost = self.max_cost * 1.05
 
+        ## From TFA (Supplementary note 3):
+        ## These alternative costs for “no linking” (b and d in
+        ## Fig. 1b) were inferred from the tracking information available
+        ## up to the source frame t. They were taken as 1.05 × the
+        ## maximal cost of all previous links
+        new = m_costmat.max()
+        if self.guessed:
+            print('Getting first value for max cost \n'
+                  'Guessed value was: %.3f' % self.max_cost)
+            self.max_cost = new
+            self.guessed = False
+            print('New value is %.3f' % self.max_cost)
+
+        elif np.isfinite(new):
+            self.max_cost = max(new, self.max_cost)
+            if self.max_cost == new:
+                print('New value for max cost: %.4f'
+                      % (self.max_cost))
+
+        birthcost = deathcost = self.max_cost * 1.05
         lapmat[num_in:, :num_out] = self.get_birthmat(num_out, birthcost)
         lapmat[:num_in, num_out:] = self.get_deathmat(num_in, deathcost)
         m_lapmat = ma.masked_invalid(lapmat)
