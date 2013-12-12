@@ -8,6 +8,8 @@ from __future__ import print_function
 import logging
 
 import numpy as np
+import matplotlib
+matplotlib.rcParams['backend'] = 'Qt4Agg'
 import matplotlib.pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
@@ -46,7 +48,10 @@ class LAPTracker(object):
 
         self.coordinates = coords
         self.track = track_df
-        self.track.index.set_names(['t', 'label'], inplace=True)
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
@@ -104,13 +109,16 @@ class LAPTracker(object):
 
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.set_names(['t', 'label'], inplace=True)
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
         if save:
             self.save_df(self.track, 'sorted')
         self.track.sortlevel('label', inplace=True)
         self.track.sortlevel('t', inplace=True)
+        relabel_fromzero(self.track, 'label', inplace=True)
 
-            
     def save_df(self, dataframe, name):
         try:
             self.store.open()
@@ -129,7 +137,10 @@ class LAPTracker(object):
                              inplace=True, drop='True')
         self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
-        self.track.index.set_names(['t', 'label'], inplace=True)
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
         self.track.sortlevel('label', inplace=True)
         self.track.sortlevel('t', inplace=True)
 
@@ -187,15 +198,20 @@ class LAPTracker(object):
         self.track['new_label'] = new_labels
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.set_names(['t', 'label'], inplace=True)
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
         self.track.sortlevel('label', inplace=True)
         self.track.sortlevel('t', inplace=True)
+        relabel_fromzero(self.track, 'label', inplace=True)
         if save:
             self.save_df(self.track, 'sorted')
         
     def split(self, root_label, split_time, branch_label):
 
-        log.info('''Splitting segment %i @ time %i ''' % (int(root_label), split_time))
+        log.info('''Splitting segment %i @ time %i '''
+                 % (int(root_label), split_time))
         root_segment = self.get_segment(root_label) 
         duplicated = root_segment.loc[:split_time].copy()
         dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
@@ -223,32 +239,13 @@ class LAPTracker(object):
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
             pos0 = self.track.loc[t0][self.coordinates]
-
         in_links, out_links = self.pos_solver.solve(pos0, pos1)
-
-        
         for idx_out, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
                 new_label = self.track['new_label'].max() + 1.
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
-                # if self.pos_solver.guessed:
-                #     print('Getting first value for max cost \n'
-                #     'guessed value was: %.3f' % self.pos_solver.max_cost)
-                #     self.pos_solver.max_cost = self.pos_solver.lapmat[idx_in,
-                #                                                       idx_out]
-                #     self.pos_solver.guessed = False
-                #     print('New value %.3f' % self.pos_solver.max_cost)
-                # else:
-                #     new, prev = (self.pos_solver.lapmat[idx_in, idx_out],
-                #                  self.pos_solver.max_cost)
-
-                #     self.pos_solver.max_cost = max(new, prev)
-                #     if self.pos_solver.max_cost == new:
-                #         print('New value for max cost at time %i: %.4f'
-                #               % (t0, new))
-                        
             self.track.loc[t1, 'new_label'].iloc[idx_out] = new_label
             
     def predict_positions(self, t0, t1):
@@ -378,10 +375,35 @@ class LAPTracker(object):
 
     @property
     def colors(self):
-        colors = 'r,g,b,y,orange,purple,magenta,cyan'
-        colors = colors.split(',') * (self.labels.size // 8  + 1)
-        return dict([(lbl, c) for c, lbl in zip(colors, self.labels)])
+        '''
+        Returns a DataFrame indexed like `self.track` with a
+        color for each uniuque label
+        '''
+        clrs = self.track.index.get_level_values(
+            'label').values.astype(np.float)
+        clrs /= clrs.max()
+        clrs = pd.DataFrame(plt.cm.spectral(clrs),
+                            index=self.track.index,
+                            columns=('R', 'G', 'B', 'A'))
+        return clrs
 
+
+def relabel_fromzero(df, level, inplace=False):
+    
+    old_lbls = df.index.get_level_values(level)
+    nu_lbls = old_lbls.values.astype(np.uint16).copy()
+    for n, uv in enumerate(old_lbls.unique()):
+        nu_lbls[old_lbls == uv] = n
+    if not inplace:
+        df = df.copy()
+    df['new_label'] = nu_lbls
+    df.set_index('new_label', append=True, inplace=True)
+    df.reset_index(level, drop=True, inplace=True)
+    names = list(df.index.names)
+    names[names.index('new_label')] = level
+    df.index.set_names(names, inplace=True)
+    return df
+        
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T

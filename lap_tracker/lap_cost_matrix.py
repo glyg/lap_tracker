@@ -17,7 +17,6 @@ from .lapjv import lapjv
 from .utils.progress import pprogress
 
 log = logging.getLogger(__name__)
-
 PERCENTILE = 95
 
 
@@ -270,7 +269,6 @@ class CMSSolver(LAPSolver):
         seeds.extend(key[1] for key in self.merge_dic.keys())
         seeds = np.unique(seeds)
         return [tuple(seed) for seed in seeds]
-        
         
     def get_alt_merge_split(self):
         
