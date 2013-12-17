@@ -247,7 +247,8 @@ class LAPTracker(object):
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
             pos0 = self.track.loc[t0][self.coordinates]
-        in_links, out_links = self.pos_solver.solve(pos0, pos1)
+        delta_t = t1 - t0
+        in_links, out_links = self.pos_solver.solve(pos0, pos1, delta_t)
         for idx_out, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
@@ -395,6 +396,14 @@ class LAPTracker(object):
                             columns=('R', 'G', 'B', 'A'))
         return clrs
 
+    @property
+    def label_colors(self):
+        '''dictionary with labels as key and a single RGBA
+        quadruplets for each label
+        '''
+        return {label: tuple(self.colors.xs(label, level='label').iloc[0].values)
+                for label in self.labels}
+        
 
 def relabel_fromzero(df, level, inplace=False):
     

@@ -45,9 +45,9 @@ class LAPSolver(object):
         
         return in_links, out_links
         
-    def get_costmat(self, pos0, pos1):
+    def get_costmat(self, pos0, pos1, delta_t=1):
 
-        distances = cdist(pos0, pos1)
+        distances = cdist(pos0, pos1) / delta_t
         filtered_dist = distances.copy()
         filtered_dist[distances > self.max_disp] = np.nan
         # self.fillvalue = self.dist_function(p90)
@@ -72,7 +72,7 @@ class LAPSolver(object):
         return idxs_in, idxs_out, costs
 
 
-    def get_lapmat(self, pos0, pos1):
+    def get_lapmat(self, pos0, pos1, delta_t=1):
 
         pos0 = np.asarray(pos0)
         pos1 = np.asarray(pos1)
@@ -83,7 +83,7 @@ class LAPSolver(object):
 
         lapmat = np.zeros((num_in + num_out,
                            num_in + num_out)) * np.nan
-        self.costmat = self.get_costmat(pos0, pos1)
+        self.costmat = self.get_costmat(pos0, pos1, delta_t)
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
 
@@ -340,7 +340,7 @@ class CMSSolver(LAPSolver):
         ### Actually, the upper right and lower left blocks have shape (n_segments+ n_seeds)
         ### to give space for alternate costs d' and b'. So overall shape is
         ### ((n_segments + n_seeds)*2, (n_segments + n_seeds)*2) ....
-        size = (n_segments+ n_seeds) * 2
+        size = (n_segments + n_seeds) * 2
         lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
 
