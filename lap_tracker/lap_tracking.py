@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
@@ -9,12 +8,17 @@ from __future__ import print_function
 import logging
 
 import numpy as np
+import matplotlib
+matplotlib.rcParams['backend'] = 'Qt4Agg'
+import matplotlib.pylab as plt
+from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
 
 from sklearn.gaussian_process import GaussianProcess
 from sklearn.decomposition import PCA
 import warnings
 
-from .lap_cost_matrix import get_lapmat, get_lap_args, get_cmt_mat
+from .lap_cost_matrix import LAPSolver, CMSSolver
 from .lapjv import lapjv
 from .utils.progress import pprogress
 
@@ -32,6 +36,7 @@ class LAPTracker(object):
 
     def __init__(self, track_df=None,
                  hdfstore=None,
+                 coords=['x', 'y', 'z'],
                  dist_function=np.square,
                  params=DEFAULTS,
                  verbose=True):
@@ -41,11 +46,19 @@ class LAPTracker(object):
         else:
             log.disabled = False
 
+        self.coordinates = coords
         self.track = track_df
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
+        self.pos_solver = LAPSolver(self, verbose=verbose)
 
+
+        
     def load_parameters(self, params):
         """
         """
@@ -57,12 +70,11 @@ class LAPTracker(object):
                 self.params[key] = value
         self.gp_kwargs = {}
         for key, value in self.params.items():
-            if isinstance(key, str) :
+            if isinstance(key, str) or isinstance(key, unicode) :
                 if key.startswith('gp_'):
                     self.gp_kwargs[key[3:]] = value
                 else:
                     self.__setattr__(key, value)
-
     @property
     def times(self):
         '''Unique values of the level 0 index of `self.track`'''
@@ -73,7 +85,7 @@ class LAPTracker(object):
         '''Unique values of the level 1 index of `self.track`'''
         return self.track.index.get_level_values(1).unique()
 
-    def get_track(self, verbose=False, **kwargs):
+    def get_track(self, verbose=False, save=True, **kwargs):
 
         for key, value in kwargs.items():
             if key.startswith('gp_'):
@@ -82,8 +94,8 @@ class LAPTracker(object):
                 self.__setattr__(key, value)
 
         log.info('Get track (predict=%s)' % str(self.predict))
-
-        self.track['new_label'] = self.track.index.get_level_values(1)
+        old_label = self.track.index.get_level_values(1).values
+        self.track['new_label'] = old_label.astype(np.float)
         time_points = self.times
 
         n = len(time_points) - 1
@@ -97,105 +109,158 @@ class LAPTracker(object):
 
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.names[1] = 'label'
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
+        if save:
+            self.save_df(self.track, 'sorted')
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
+        relabel_fromzero(self.track, 'label', inplace=True)
 
-        # if self.store:
-        #     self.store.open()
-        #     self.store['sorted'] = self.track
-        #     self.store.close()
-
+    def save_df(self, dataframe, name):
+        try:
+            self.store.open()
+            self.store[name] = dataframe
+            self.store.close()
+        except AttributeError:
+            warnings.warn('''No store has been provided, can't save''')
+    
     def reverse_track(self):
 
         self.track['rev_times'] = self.track.index.get_level_values(0)
         self.track['rev_times'] = (self.track['rev_times'].iloc[-1]
                                    - self.track['rev_times'])
         self.track = self.track.iloc[::-1]
-        self.track.set_index('rev_times', append=True, inplace=True,
-                             drop='True')
+        self.track.set_index('rev_times', append=True,
+                             inplace=True, drop='True')
         self.track.reset_index(level='t', drop=True, inplace=True)
         self.track = self.track.swaplevel(0, 1, axis=0)
-        self.track.index.names[0] = 't'
-
-
-    def close_merge_split(self, return_mat=False, verbose=False):
-
-        if self.ndims == 2:
-            segments = [segment[['x', 'y']]
-                        for segment in self.segments()]
-        elif self.ndims == 3:
-            segments = [segment[['x', 'y', 'z']]
-                        for segment in self.segments()]
         try:
-            intensities = [segment['I'] for segment in self.segments()]
-        except KeyError:
-            intensities = [(segment['x'] + 1) / (segment['x'] + 1)
-                           for segment in self.segments()]
-        lapmat = get_cmt_mat(segments, intensities,
-                             self.max_disp, self.window_gap,
-                             gap_close_only=True,
-                             verbose=verbose)
-        idxs_in, idxs_out, costs = get_lap_args(lapmat)
-        in_links, out_links = lapjv(idxs_in, idxs_out, costs)
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
 
-        num_seqs = len(segments)
+    def close_merge_split(self, verbose=False,
+                          gap_close_only=True, save=True):
+
+        self.cms_solver = CMSSolver(self, verbose=verbose)
+
+        in_links, out_links = self.cms_solver.solve(
+            gap_close_only=gap_close_only)
+        n_segments = len(self.cms_solver.segments)
+        n_seeds = len(self.cms_solver.seeds)
+        sm_start = n_segments
+        sm_stop = n_segments + n_seeds if not gap_close_only else n_segments
+
+        ## First split and merge, because this changes
+        ## data length, without changing the unique labels
+        
+        labels = self.labels
+        for n, idx_in in enumerate(out_links[:n_segments]):
+            ## splitting
+            if n_segments <= idx_in < sm_stop:
+                seed = self.cms_solver.seeds[idx_in - sm_start]
+                root_label = labels[seed[0]]
+                split_time = seed[1]
+                branch_label = labels[n]
+                self.split(root_label, split_time, branch_label)
+                
+        for n, idx_in in enumerate(out_links[sm_start:sm_stop]):
+            ## merging
+            if idx_in < n_segments:
+                seed = self.cms_solver.seeds[n]
+                root_label = labels[seed[0]]
+                merge_time = seed[1]
+                branch_label = labels[idx_in]
+                self.merge(root_label, merge_time, branch_label)
+
+        ## Now for gap closing
         old_labels = self.track.index.get_level_values(1).values
         new_labels = old_labels.copy()
         unique_old = np.unique(old_labels)
         unique_new = np.unique(new_labels)
-
-        for n, idx_in in enumerate(out_links[:num_seqs]):
-            if idx_in >= num_seqs:
-                # new segment
-                new_label = unique_new.max() + 1
-            else:
+        for n, idx_in in enumerate(out_links[:n_segments]):
+            ## gap closing
+            if idx_in < n_segments:
                 new_label  = unique_new[idx_in]
-            unique_new[n] = new_label
+                unique_new[n] = new_label
+                log.info('Gap cosing for segment %i'
+                         % new_label)
+            elif idx_in >= sm_stop:
+                unique_new[n] = unique_new.max() + 1
         for old, new in zip(unique_old, unique_new):
             new_labels[old_labels == old] = new
 
         self.track['new_label'] = new_labels
         self.track.set_index('new_label', append=True, inplace=True)
         self.track.reset_index(level='label', drop=True, inplace=True)
-        self.track.index.names[1] = 'label'
-        if return_mat: return lapmat
+        try:
+            self.track.index.set_names(['t', 'label'], inplace=True)
+        except AttributeError:
+            self.track.index.names = ['t', 'label']
+        self.track.sortlevel('label', inplace=True)
+        self.track.sortlevel('t', inplace=True)
+        relabel_fromzero(self.track, 'label', inplace=True)
+        if save:
+            self.save_df(self.track, 'sorted')
+        
+    def split(self, root_label, split_time, branch_label):
 
+        log.info('''Splitting segment %i @ time %i '''
+                 % (int(root_label), split_time))
+        root_segment = self.get_segment(root_label) 
+        try :
+            root_segment['I'] /+ 2.
+        except KeyError:
+            pass
+        duplicated = root_segment.loc[:split_time].copy()
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+                                               for t in duplicated.index])
+        duplicated.set_index(dup_index, inplace=True)
+        self.track = self.track.append(duplicated)
+        self.track.sortlevel(0, inplace=True)
+
+    def relabel_fromzero(self):
+        relabel_fromzero(self.track, 'label', inplace=True)
+
+        
+    def merge(self, root_label, merge_time, branch_label):
+
+        log.info('''Merge root %i @ time %i ''' % (int(root_label), merge_time))
+        root_segment = self.get_segment(root_label) 
+        duplicated = root_segment.loc[merge_time:].copy()
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+                                               for t in duplicated.index])
+        duplicated.set_index(dup_index, inplace=True)
+        self.track = self.track.append(duplicated)
+        self.track.sortlevel(0, inplace=True)
 
     def position_track(self, t0, t1):
-
-        coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
-
-        pos1 = self.track.loc[t1][coordinates]
+        
+        pos1 = self.track.loc[t1][self.coordinates]
+        
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
-            pos0 = self.track.loc[t0][coordinates]
-        lapmat = get_lapmat(pos0, pos1,
-                            self.max_disp * (t1 - t0),
-                            self.dist_function)
-        idxs_in, idxs_out, costs = get_lap_args(lapmat)
-        try:
-            in_links, out_links = lapjv(idxs_in, idxs_out, costs)
-        except AssertionError:
-            warnings.warn('''Someting's' amiss between points %s and %s'''
-                          % (t0, t1), RuntimeWarning)
-            for n in range(pos1.shape[0]):
-                new_label = self.track['new_label'].max() + 1
-                self.track.xs(t1)['new_label'].iloc[n] = new_label
-            return
-        for n, idx_in in enumerate(out_links[:pos1.shape[0]]):
+            pos0 = self.track.loc[t0][self.coordinates]
+        in_links, out_links = self.pos_solver.solve(pos0, pos1)
+        for idx_out, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
-                new_label = self.track['new_label'].max() + 1
+                new_label = self.track['new_label'].max() + 1.
             else:
                 new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
-            self.track.loc[t1]['new_label'].iloc[n] = new_label
-
+            self.track.loc[t1, 'new_label'].iloc[idx_out] = new_label
+            
     def predict_positions(self, t0, t1):
         """
         """
 
-        coordinates = ['x', 'y'] if self.ndims == 2 else ['x', 'y', 'z']
-        pos0 = self.track.xs(t0)[coordinates]
+        pos0 = self.track.xs(t0)[self.coordinates]
         mse0 = pos0.copy() * 0.
 
         if np.where(self.times == t1) < 3:
@@ -211,13 +276,13 @@ class LAPTracker(object):
                 continue
             times = segment.index.get_level_values(0)
             if times.size < 3:
-                pos = segment[coordinates].loc[t0]
+                pos = segment[self.coordinates].loc[t0]
                 mse = pos * 0
             else:
                 pred = [_predict_coordinate(segment, coord, times,
-                                            t0, self.sigma,
+                                            t1, self.sigma,
                                             **self.gp_kwargs)
-                        for coord in coordinates]
+                        for coord in self.coordinates]
                 pos = [p[0] for p in pred]
                 mse = [p[1] for p in pred]
             pos0.ix[lbl] = pos
@@ -238,59 +303,115 @@ class LAPTracker(object):
         for lbl in self.labels:
             yield self.get_segment(lbl)
 
-    def show_3D(self):
+    def show(self, ndims=2, **kwargs):
 
-        import matplotlib.pylab as plt
-        from mpl_toolkits.mplot3d import Axes3D
-
-        fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+        if ndims == 3:
+            fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+        else:
+            fig, axes = plt.subplots(1, 2)
         ax0, ax1 = axes
         for label in self.labels:
-            ax0, ax1 = self.show_segment(label, axes)
+            if ndims == 3:
+                ax0, ax1 = self.show_segment_3D(label, axes, **kwargs)
+            else:
+                ax0, ax1 = self.show_segment_2D(label, axes, **kwargs)
         return ax0, ax1
 
-    def show_segment(self, label, axes=None):
-
-        import matplotlib.pylab as plt
-        from mpl_toolkits.mplot3d import Axes3D
+    def show_3D(self, **kwargs):
+        return self.show(ndims=3, **kwargs)
+        
+    def show_segment_3D(self, label, axes=None, coords=('x', 'y', 'z')):
 
         if axes is None:
             fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
         ax0, ax1 = axes
         segment = self.get_segment(label)
+        
+        xs = segment[coords[0]].values
+        ys = segment[coords[1]].values
+        zs = segment[coords[2]].values
+        
         times = segment.index.get_level_values(0)
-        ax0.plot(times, segment['x'],
-                 zs=segment['y'])
-        colors = plt.cm.jet(segment['x'].size)
-        ax1.plot(segment['x'], segment['y'],
-                 zs=segment['z'])
-        ax1.scatter(segment['x'], segment['y'],
-                    segment['z'], c=colors)
+        ax0.plot(times, xs, ys)
+        colors = plt.cm.jet(xs.size)
+        ax1.plot(xs, ys, zs)
+        ax1.scatter(xs , ys, zs, c=colors)
         ax0.set_xlabel('Time (min)')
         ax0.set_ylabel(u'x position (µm)')
         ax0.set_zlabel(u'y position (µm)')
         ax1.set_xlabel(u'x position (µm)')
         ax1.set_ylabel(u'y position (µm)')
         ax1.set_zlabel(u'z position (µm)')
+
         return ax0, ax1
 
-    def do_pca(self, df=None, ndims=3):
+    def show_segment_2D(self, label, axes=None, coords=('x', 'y')):
+        if axes is None:
+            fig, axes = plt.subplots(1, 2)
+        ax0, ax1 = axes
+        segment = self.get_segment(label)
+        xs = segment[coords[0]].values
+        ys = segment[coords[1]].values
+
+        times = segment.index
+        ax0.plot(times, xs)
+        colors = plt.cm.jet(xs.size)
+        ax1.plot(xs, ys)
+        ax1.scatter(xs, ys,
+                    c=colors)
+        ax0.set_xlabel('Time (min)')
+        ax0.set_ylabel(u'x position (µm)')
+        ax1.set_xlabel(u'x position (µm)')
+        ax1.set_ylabel(u'y position (µm)')
+        return ax0, ax1
+
+    def do_pca(self, df=None, ndims=3,
+               coords=['x', 'y', 'z'], suffix='_pca'):
 
         if not df:
             df = self.track
-
         self.pca = PCA()
+        pca_coords = [c+suffix  for c in coords]
         if ndims == 2:
-            coords = ['x', 'y']
-            pca_coords = ['x_pca', 'y_pca']
-        elif ndims == 3:
-            coords = ['x', 'y', 'z']
-            pca_coords = ['x_pca', 'y_pca', 'z_pca']
+            coords = coords[:2]
+            pca_coords = pca_coords[:2]
+            
         rotated = self.pca.fit_transform(df[coords])
         for n, coord in enumerate(pca_coords):
             df[coord] = rotated[:, n]
+        return df
+
+    @property
+    def colors(self):
+        '''
+        Returns a DataFrame indexed like `self.track` with a
+        color for each unique label
+        '''
+        clrs = self.track.index.get_level_values(
+            'label').values.astype(np.float)
+        clrs /= clrs.max()
+        clrs = pd.DataFrame(plt.cm.spectral(clrs),
+                            index=self.track.index,
+                            columns=('R', 'G', 'B', 'A'))
+        return clrs
 
 
+def relabel_fromzero(df, level, inplace=False):
+    
+    old_lbls = df.index.get_level_values(level)
+    nu_lbls = old_lbls.values.astype(np.uint16).copy()
+    for n, uv in enumerate(old_lbls.unique()):
+        nu_lbls[old_lbls == uv] = n
+    if not inplace:
+        df = df.copy()
+    df['new_label'] = nu_lbls
+    df.set_index('new_label', append=True, inplace=True)
+    df.reset_index(level, drop=True, inplace=True)
+    names = list(df.index.names)
+    names[names.index('new_label')] = level
+    df.index.set_names(names, inplace=True)
+    return df
+        
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T
