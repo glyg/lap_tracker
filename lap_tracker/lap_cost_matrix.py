@@ -343,7 +343,8 @@ class CMSSolver(LAPSolver):
         size = (n_segments + n_seeds) * 2
         lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
-
+        alt_sm_start = size * 2 - n_seeds
+        
         if not gap_close_only:
             lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
 
@@ -351,8 +352,8 @@ class CMSSolver(LAPSolver):
             
             alt_merge_mat, alt_split_mat = self.get_alt_merge_split()
             
-            lapmat[sm_start:sm_stop, -n_seeds:] = alt_split_mat
-            lapmat[-n_seeds:, sm_start:sm_stop] = alt_merge_mat
+            lapmat[sm_start:sm_stop, alt_sm_start:] = alt_split_mat
+            lapmat[alt_sm_start:, sm_start:sm_stop] = alt_merge_mat
 
         m_lapmat = ma.masked_invalid(lapmat)
         if np.all(np.isnan(lapmat)):
@@ -361,9 +362,10 @@ class CMSSolver(LAPSolver):
         else:
             terminate_cost = init_cost = np.percentile(m_lapmat.compressed(),
                                                        PERCENTILE) * 4.
-        lapmat[:n_segments, sm_stop:-n_seeds] = self.get_birthmat(n_segments,
+        
+        lapmat[:n_segments, sm_stop:alt_sm_start] = self.get_birthmat(n_segments,
                                                                   init_cost)
-        lapmat[sm_stop:-n_seeds, :n_segments] = self.get_deathmat(n_segments,
+        lapmat[sm_stop:alt_sm_start, :n_segments] = self.get_deathmat(n_segments,
                                                                   terminate_cost)
         m_lapmat = ma.masked_invalid(lapmat)
         self.fillvalue = m_lapmat.max() * 1.05
@@ -373,12 +375,12 @@ class CMSSolver(LAPSolver):
             red_lapmat = np.zeros((n_segments * 2, n_segments *2))
             red_lapmat[:n_segments, :n_segments] = lapmat[:n_segments,
                                                           :n_segments]
-            red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:-n_seeds,
+            red_lapmat[n_segments:, :n_segments] = lapmat[sm_stop:alt_sm_start,
                                                           :n_segments]
             red_lapmat[:n_segments, n_segments:] = lapmat[:n_segments,
-                                                          sm_stop:-n_seeds]
-            red_lapmat[n_segments:, n_segments:] = lapmat[sm_stop:-n_seeds,
-                                                          sm_stop:-n_seeds]
+                                                          sm_stop:alt_sm_start]
+            red_lapmat[n_segments:, n_segments:] = lapmat[sm_stop:alt_sm_start,
+                                                          sm_stop:alt_sm_start]
             return red_lapmat
         return lapmat
 
