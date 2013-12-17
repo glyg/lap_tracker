@@ -299,11 +299,9 @@ class CMSSolver(LAPSolver):
                     split_factor = i0 / i1
                     
             alt_merge_mat[n, n] = (avg_disps[seg_index]
-                                   * merge_factor) * 10.
-            # for key in self.split_dic.keys():
-            #     if key[1] == seed:
+                                   * merge_factor)
             alt_split_mat[n, n] = (avg_disps[seg_index]
-                                   * split_factor) * 10.
+                                   * split_factor)
         return alt_merge_mat, alt_split_mat
 
     def get_lapmat(self, gap_close_only=False,

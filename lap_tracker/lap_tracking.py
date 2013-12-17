@@ -213,6 +213,10 @@ class LAPTracker(object):
         log.info('''Splitting segment %i @ time %i '''
                  % (int(root_label), split_time))
         root_segment = self.get_segment(root_label) 
+        try :
+            root_segment['I'] /+ 2.
+        except KeyError:
+            pass
         duplicated = root_segment.loc[:split_time].copy()
         dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
                                                for t in duplicated.index])
@@ -220,6 +224,10 @@ class LAPTracker(object):
         self.track = self.track.append(duplicated)
         self.track.sortlevel(0, inplace=True)
 
+    def relabel_fromzero(self):
+        relabel_fromzero(self.track, 'label', inplace=True)
+
+        
     def merge(self, root_label, merge_time, branch_label):
 
         log.info('''Merge root %i @ time %i ''' % (int(root_label), merge_time))
@@ -377,7 +385,7 @@ class LAPTracker(object):
     def colors(self):
         '''
         Returns a DataFrame indexed like `self.track` with a
-        color for each uniuque label
+        color for each unique label
         '''
         clrs = self.track.index.get_level_values(
             'label').values.astype(np.float)
