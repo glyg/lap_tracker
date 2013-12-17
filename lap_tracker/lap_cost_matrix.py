@@ -343,7 +343,7 @@ class CMSSolver(LAPSolver):
         size = (n_segments + n_seeds) * 2
         lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
-        alt_sm_start = size * 2 - n_seeds
+        alt_sm_start = size  - n_seeds
         
         if not gap_close_only:
             lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
