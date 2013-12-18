@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import logging
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -149,7 +150,7 @@ class LAPTracker(object):
             log.critical("Python darkness get you")
             log.critical("Unable to perform close/merge/split")
             log.critical("You should restart your kernel/interpreter")
-            log.critical(e)
+            log.critical("\n" + traceback.format_exc())
             return None
 
         in_links, out_links = self.cms_solver.solve(
