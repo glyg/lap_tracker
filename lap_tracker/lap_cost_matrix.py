@@ -42,9 +42,6 @@ class LAPSolver(object):
         self.lapmat = self.get_lapmat(*args, **kwargs)
 
         if np.all(np.isnan(self.lapmat)):
-            log.warning("LAP matrice is invalid")
-            log.warning("Check wether max_disp is not too low according to "
-                        "your dataset")
             return None
 
         idxs_in, idxs_out, costs = self.get_lap_args()
@@ -207,8 +204,8 @@ class CMSSolver(LAPSolver):
             times0 = segment0.index
             first_time = times0[0]
             first = segment0.iloc[0]
-            for j, (segment1,intensities1) in enumerate(zip(self.segments,
-                                                            self.intensities)):
+            for j, (segment1, intensities1) in enumerate(zip(self.segments,
+                                                             self.intensities)):
                 times1 = segment1.index
                 if not (times1[0] < first_time <= times1[-1]):
                     continue
@@ -296,7 +293,7 @@ class CMSSolver(LAPSolver):
                 merge_factor = split_factor = 1.
             else:
                 i0, i1 = intensity.iloc[-2:]
-                if i1 / i0 > 1 :
+                if i1 / i0 > 1:
                     merge_factor = i1 / i0
                     split_factor = (i0 / i1)**-2
                 else:
