@@ -17,11 +17,12 @@ from .lapjv import lapjv
 from .utils.progress import pprogress
 
 log = logging.getLogger(__name__)
+
 PERCENTILE = 95
 
 
 class LAPSolver(object):
-    
+
     def __init__(self, tracker, verbose=False):
 
         self.tracker = tracker
@@ -31,20 +32,25 @@ class LAPSolver(object):
         ## Initial guess
         self.max_cost = self.dist_function(self.tracker.max_disp)
         self.guessed = True
-        
+
     @property
     def max_disp(self):
         return self.tracker.max_disp
-        
+
     def solve(self, *args, **kwargs):
 
         self.lapmat = self.get_lapmat(*args, **kwargs)
+
+        if np.all(np.isnan(self.lapmat)):
+            log.warning("LAP matrice is invalid")
+            log.warning("Check wether max_disp is not too low according to "
+                        "your dataset")
+            return None
+
         idxs_in, idxs_out, costs = self.get_lap_args()
         in_links, out_links = lapjv(idxs_in, idxs_out, costs)
-        
-        
         return in_links, out_links
-        
+
     def get_costmat(self, pos0, pos1, delta_t=1):
 
         distances = cdist(pos0, pos1) / delta_t
@@ -52,11 +58,11 @@ class LAPSolver(object):
         filtered_dist[distances > self.max_disp] = np.nan
         # self.fillvalue = self.dist_function(p90)
         costmat = self.dist_function(filtered_dist)
-        
+
         return costmat
-        
+
     def get_lap_args(self):
-        
+
         idxs_in, idxs_out = np.mgrid[:self.lapmat.shape[0],
                                      :self.lapmat.shape[1]]
         idxs_in = idxs_in.flatten()
@@ -70,7 +76,6 @@ class LAPSolver(object):
         idxs_in = idxs_in[finite_flat]
         idxs_out = idxs_out[finite_flat]
         return idxs_in, idxs_out, costs
-
 
     def get_lapmat(self, pos0, pos1, delta_t=1):
 
@@ -94,17 +99,17 @@ class LAPSolver(object):
         ## maximal cost of all previous links
         new = m_costmat.max()
         if self.guessed:
-            print('Getting first value for max cost \n'
-                  'Guessed value was: %.3f' % self.max_cost)
+            log.info('Getting first value for max cost')
+            log.info('Guessed value was: %.3f' % self.max_cost)
             self.max_cost = new
             self.guessed = False
-            print('New value is %.3f' % self.max_cost)
+            log.info('New value is %.3f' % self.max_cost)
 
         elif np.isfinite(new):
             self.max_cost = max(new, self.max_cost)
             if self.max_cost == new:
-                print('New value for max cost: %.4f'
-                      % (self.max_cost))
+                log.info('New value for max cost: %.4f'
+                         % (self.max_cost))
 
         birthcost = deathcost = self.max_cost * 1.05
         lapmat[num_in:, :num_out] = self.get_birthmat(num_out, birthcost)
@@ -127,7 +132,7 @@ class LAPSolver(object):
         return birthmat
 
     def get_lowerright(self):
-        
+
         lowerright = self.costmat.T.copy()
         lowerright[np.isfinite(lowerright)] = self.fillvalue
         return lowerright
@@ -149,7 +154,7 @@ class CMSSolver(LAPSolver):
 
         super(CMSSolver, self).__init__(*args, **kwargs)
         self.window_gap = self.tracker.window_gap
-        
+
         if self.ndims == 2:
             self.segments = [segment[['x', 'y']]
                              for segment in self.tracker.segments()]
@@ -165,7 +170,7 @@ class CMSSolver(LAPSolver):
 
         if len(self.segments) == 0:
             warnings.warn('Empty tracker, nothing to do')
-            
+
     def get_gap_closing(self):
 
         log.info("Close gap")
@@ -262,16 +267,16 @@ class CMSSolver(LAPSolver):
                 merge_dic[i, (j, merge_time)] =  weight
         pprogress(-1)
         return merge_dic
-        
+
     def get_cms_seeds(self):
-        
+
         seeds = [key[1] for key in self.split_dic.keys()]
         seeds.extend(key[1] for key in self.merge_dic.keys())
         seeds = np.unique(seeds)
         return [tuple(seed) for seed in seeds]
-        
+
     def get_alt_merge_split(self):
-        
+
         alt_merge_mat = np.zeros((len(self.seeds),
                                   len(self.seeds))) * np.nan
         alt_split_mat = alt_merge_mat.copy()
@@ -281,7 +286,7 @@ class CMSSolver(LAPSolver):
         global_mean = avg_disps[np.isfinite(avg_disps)].mean()
         avg_disps[np.isnan(avg_disps)] = global_mean
         avg_disps = self.dist_function(avg_disps)
-        
+
         for n, seed in enumerate(self.seeds):
             seg_index = seed[0]
             pos_index = seed[1]
@@ -297,7 +302,7 @@ class CMSSolver(LAPSolver):
                 else:
                     merge_factor = (i1 / i0)**-2
                     split_factor = i0 / i1
-                    
+
             alt_merge_mat[n, n] = (avg_disps[seg_index]
                                    * merge_factor)
             alt_split_mat[n, n] = (avg_disps[seg_index]
@@ -311,9 +316,9 @@ class CMSSolver(LAPSolver):
             log.disabled = True
         else:
             log.disabled = False
-        
+
         n_segments = len(self.segments)
-        
+
         self.gc_mat = self.get_gap_closing()
         self.split_dic = self.get_splitting()
         self.merge_dic = self.get_merging()
@@ -334,7 +339,7 @@ class CMSSolver(LAPSolver):
 
         sm_start = n_segments
         sm_stop = n_segments + n_seeds
-        
+
         ### Looking at figure 1c from TFA one woulfd think that
         ### the matrix shape is (n_segments + n_seeds + n_segments, n_segments * 2 + n_seeds)
         ### Actually, the upper right and lower left blocks have shape (n_segments+ n_seeds)
@@ -344,14 +349,14 @@ class CMSSolver(LAPSolver):
         lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
         alt_sm_start = size  - n_seeds
-        
+
         if not gap_close_only:
             lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat
 
             lapmat[sm_start:sm_stop, :n_segments] = self.split_mat
-            
+
             alt_merge_mat, alt_split_mat = self.get_alt_merge_split()
-            
+
             lapmat[sm_start:sm_stop, alt_sm_start:] = alt_split_mat
             lapmat[alt_sm_start:, sm_start:sm_stop] = alt_merge_mat
 
@@ -362,7 +367,7 @@ class CMSSolver(LAPSolver):
         else:
             terminate_cost = init_cost = np.percentile(m_lapmat.compressed(),
                                                        PERCENTILE) * 4.
-        
+
         lapmat[:n_segments, sm_stop:alt_sm_start] = self.get_birthmat(n_segments,
                                                                   init_cost)
         lapmat[sm_stop:alt_sm_start, :n_segments] = self.get_deathmat(n_segments,

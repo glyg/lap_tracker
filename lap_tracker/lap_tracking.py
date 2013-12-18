@@ -243,7 +243,15 @@ class LAPTracker(object):
         else:
             pos0 = self.track.loc[t0][self.coordinates]
         delta_t = t1 - t0
-        in_links, out_links = self.pos_solver.solve(pos0, pos1, delta_t)
+        results = self.pos_solver.solve(pos0, pos1, delta_t)
+
+        if not results:
+            log.warning("LAP matrice is invalid for t = "
+                        "%d and t = %d (check max_disp value)" % (t0, t1))
+            return None
+
+        in_links, out_links = results
+
         for idx_out, idx_in in enumerate(out_links[:pos1.shape[0]]):
             if idx_in >= pos0.shape[0]:
                 # new segment
