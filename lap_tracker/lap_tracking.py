@@ -8,10 +8,6 @@ from __future__ import print_function
 import logging
 
 import numpy as np
-import matplotlib
-matplotlib.rcParams['backend'] = 'Qt4Agg'
-import matplotlib.pylab as plt
-from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
 
 from sklearn.gaussian_process import GaussianProcess
@@ -24,13 +20,14 @@ from .utils.progress import pprogress
 
 log = logging.getLogger(__name__)
 
-DEFAULTS = {'max_disp':0.1,
-            'window_gap':10,
-            'sigma':1.,
-            'ndims':3,
-            'gp_corr':'squared_exponential',
-            'gp_regr':'quadratic',
-            'gp_theta0':0.1}
+DEFAULTS = {'max_disp': 0.1,
+            'window_gap': 10,
+            'sigma': 1.,
+            'ndims': 3,
+            'gp_corr': 'squared_exponential',
+            'gp_regr': 'quadratic',
+            'gp_theta0': 0.1}
+
 
 class LAPTracker(object):
 
@@ -57,8 +54,6 @@ class LAPTracker(object):
         self.dist_function = dist_function
         self.pos_solver = LAPSolver(self, verbose=verbose)
 
-
-        
     def load_parameters(self, params):
         """
         """
@@ -70,11 +65,12 @@ class LAPTracker(object):
                 self.params[key] = value
         self.gp_kwargs = {}
         for key, value in self.params.items():
-            if isinstance(key, str) or isinstance(key, unicode) :
+            if isinstance(key, str) or isinstance(key, unicode):
                 if key.startswith('gp_'):
                     self.gp_kwargs[key[3:]] = value
                 else:
                     self.__setattr__(key, value)
+
     @property
     def times(self):
         '''Unique values of the level 0 index of `self.track`'''
@@ -126,7 +122,7 @@ class LAPTracker(object):
             self.store.close()
         except AttributeError:
             warnings.warn('''No store has been provided, can't save''')
-    
+
     def reverse_track(self):
 
         self.track['rev_times'] = self.track.index.get_level_values(0)
@@ -158,7 +154,7 @@ class LAPTracker(object):
 
         ## First split and merge, because this changes
         ## data length, without changing the unique labels
-        
+
         labels = self.labels
         for n, idx_in in enumerate(out_links[:n_segments]):
             ## splitting
@@ -168,7 +164,7 @@ class LAPTracker(object):
                 split_time = seed[1]
                 branch_label = labels[n]
                 self.split(root_label, split_time, branch_label)
-                
+
         for n, idx_in in enumerate(out_links[sm_start:sm_stop]):
             ## merging
             if idx_in < n_segments:
@@ -186,7 +182,7 @@ class LAPTracker(object):
         for n, idx_in in enumerate(out_links[:n_segments]):
             ## gap closing
             if idx_in < n_segments:
-                new_label  = unique_new[idx_in]
+                new_label = unique_new[idx_in]
                 unique_new[n] = new_label
                 log.info('Gap cosing for segment %i'
                          % new_label)
@@ -207,18 +203,18 @@ class LAPTracker(object):
         relabel_fromzero(self.track, 'label', inplace=True)
         if save:
             self.save_df(self.track, 'sorted')
-        
+
     def split(self, root_label, split_time, branch_label):
 
         log.info('''Splitting segment %i @ time %i '''
                  % (int(root_label), split_time))
-        root_segment = self.get_segment(root_label) 
-        try :
-            root_segment['I'] /+ 2.
+        root_segment = self.get_segment(root_label)
+        try:
+            root_segment['I'] / + 2.
         except KeyError:
             pass
         duplicated = root_segment.loc[:split_time].copy()
-        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label)
                                                for t in duplicated.index])
         duplicated.set_index(dup_index, inplace=True)
         self.track = self.track.append(duplicated)
@@ -227,22 +223,21 @@ class LAPTracker(object):
     def relabel_fromzero(self):
         relabel_fromzero(self.track, 'label', inplace=True)
 
-        
     def merge(self, root_label, merge_time, branch_label):
 
         log.info('''Merge root %i @ time %i ''' % (int(root_label), merge_time))
-        root_segment = self.get_segment(root_label) 
+        root_segment = self.get_segment(root_label)
         duplicated = root_segment.loc[merge_time:].copy()
-        dup_index = pd.MultiIndex.from_tuples([(t, branch_label) 
+        dup_index = pd.MultiIndex.from_tuples([(t, branch_label)
                                                for t in duplicated.index])
         duplicated.set_index(dup_index, inplace=True)
         self.track = self.track.append(duplicated)
         self.track.sortlevel(0, inplace=True)
 
     def position_track(self, t0, t1):
-        
+
         pos1 = self.track.loc[t1][self.coordinates]
-        
+
         if self.predict:
             pos0, mse0 = self.predict_positions(t0, t1)
         else:
@@ -254,9 +249,9 @@ class LAPTracker(object):
                 # new segment
                 new_label = self.track['new_label'].max() + 1.
             else:
-                new_label  = self.track.loc[t0]['new_label'].iloc[idx_in]
+                new_label = self.track.loc[t0]['new_label'].iloc[idx_in]
             self.track.loc[t1, 'new_label'].iloc[idx_out] = new_label
-            
+
     def predict_positions(self, t0, t1):
         """
         """
@@ -295,7 +290,7 @@ class LAPTracker(object):
         for lbl in labels:
             segment = self.get_segment(lbl)
             if segment.shape[0] < min_length:
-                self.track = self.track.drop([lbl,], level=1)
+                self.track = self.track.drop([lbl, ], level=1)
 
     def get_segment(self, lbl):
         return self.track.xs(lbl, level=1)
@@ -306,8 +301,13 @@ class LAPTracker(object):
 
     def show(self, ndims=2, **kwargs):
 
+        import matplotlib
+        matplotlib.rcParams['backend'] = 'Qt4Agg'
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         if ndims == 3:
-            fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+            fig, axes = plt.subplots(1, 2, subplot_kw={'projection': '3d'})
         else:
             fig, axes = plt.subplots(1, 2)
         ax0, ax1 = axes
@@ -320,23 +320,28 @@ class LAPTracker(object):
 
     def show_3D(self, **kwargs):
         return self.show(ndims=3, **kwargs)
-        
+
     def show_segment_3D(self, label, axes=None, coords=('x', 'y', 'z')):
 
+        import matplotlib
+        matplotlib.rcParams['backend'] = 'Qt4Agg'
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         if axes is None:
-            fig, axes = plt.subplots(1, 2, subplot_kw={'projection':'3d'})
+            fig, axes = plt.subplots(1, 2, subplot_kw={'projection': '3d'})
         ax0, ax1 = axes
         segment = self.get_segment(label)
-        
+
         xs = segment[coords[0]].values
         ys = segment[coords[1]].values
         zs = segment[coords[2]].values
-        
+
         times = segment.index.get_level_values(0)
         ax0.plot(times, xs, ys)
         colors = plt.cm.jet(xs.size)
         ax1.plot(xs, ys, zs)
-        ax1.scatter(xs , ys, zs, c=colors)
+        ax1.scatter(xs, ys, zs, c=colors)
         ax0.set_xlabel('Time (min)')
         ax0.set_ylabel(u'x position (µm)')
         ax0.set_zlabel(u'y position (µm)')
@@ -347,6 +352,12 @@ class LAPTracker(object):
         return ax0, ax1
 
     def show_segment_2D(self, label, axes=None, coords=('x', 'y')):
+
+        import matplotlib
+        matplotlib.rcParams['backend'] = 'Qt4Agg'
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         if axes is None:
             fig, axes = plt.subplots(1, 2)
         ax0, ax1 = axes
@@ -369,14 +380,16 @@ class LAPTracker(object):
     def do_pca(self, df=None, ndims=3,
                coords=['x', 'y', 'z'], suffix='_pca'):
 
+        import matplotlib.pyplot as plt
+
         if not df:
             df = self.track
         self.pca = PCA()
-        pca_coords = [c+suffix  for c in coords]
+        pca_coords = [c + suffix for c in coords]
         if ndims == 2:
             coords = coords[:2]
             pca_coords = pca_coords[:2]
-            
+
         rotated = self.pca.fit_transform(df[coords])
         for n, coord in enumerate(pca_coords):
             df[coord] = rotated[:, n]
@@ -403,10 +416,10 @@ class LAPTracker(object):
         '''
         return {label: tuple(self.colors.xs(label, level='label').iloc[0].values)
                 for label in self.labels}
-        
+
 
 def relabel_fromzero(df, level, inplace=False):
-    
+
     old_lbls = df.index.get_level_values(level)
     nu_lbls = old_lbls.values.astype(np.uint16).copy()
     for n, uv in enumerate(old_lbls.unique()):
@@ -420,7 +433,8 @@ def relabel_fromzero(df, level, inplace=False):
     names[names.index('new_label')] = level
     df.index.set_names(names, inplace=True)
     return df
-        
+
+
 def _predict_coordinate(segment, coord, times, t1, sigma=10., **kwargs):
 
     times = np.atleast_2d(times).T
