@@ -143,7 +143,14 @@ class LAPTracker(object):
     def close_merge_split(self, verbose=False,
                           gap_close_only=True, save=True):
 
-        self.cms_solver = CMSSolver(self, verbose=verbose)
+        try:
+            self.cms_solver = CMSSolver(self, verbose=verbose)
+        except TypeError as e:
+            log.critical("Python darkness get you")
+            log.critical("Unable to perform close/merge/split")
+            log.critical("You should restart your kernel/interpreter")
+            log.critical(e)
+            return None
 
         in_links, out_links = self.cms_solver.solve(
             gap_close_only=gap_close_only)
@@ -184,7 +191,7 @@ class LAPTracker(object):
             if idx_in < n_segments:
                 new_label = unique_new[idx_in]
                 unique_new[n] = new_label
-                log.info('Gap cosing for segment %i'
+                log.info('Gap closing for segment %i'
                          % new_label)
             elif idx_in >= sm_stop:
                 unique_new[n] = unique_new.max() + 1
