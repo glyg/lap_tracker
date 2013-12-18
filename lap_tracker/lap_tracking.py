@@ -39,7 +39,8 @@ class LAPTracker(object):
                  params=DEFAULTS,
                  verbose=True):
 
-        if not verbose:
+        self.verbose = verbose
+        if not self.verbose:
             log.disabled = True
         else:
             log.disabled = False
@@ -53,7 +54,7 @@ class LAPTracker(object):
         self.store = hdfstore
         self.load_parameters(params)
         self.dist_function = dist_function
-        self.pos_solver = LAPSolver(self, verbose=verbose)
+        self.pos_solver = LAPSolver(self, verbose=self.verbose)
 
     def load_parameters(self, params):
         """
@@ -141,11 +142,10 @@ class LAPTracker(object):
         self.track.sortlevel('label', inplace=True)
         self.track.sortlevel('t', inplace=True)
 
-    def close_merge_split(self, verbose=False,
-                          gap_close_only=True, save=True):
+    def close_merge_split(self, gap_close_only=True, save=True):
 
         try:
-            self.cms_solver = CMSSolver(self, verbose=verbose)
+            self.cms_solver = CMSSolver(self, verbose=self.verbose)
         except TypeError as e:
             log.critical("Python darkness get you")
             log.critical("Unable to perform close/merge/split")

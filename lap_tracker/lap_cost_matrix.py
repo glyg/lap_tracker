@@ -17,6 +17,7 @@ from .lapjv import lapjv
 from .utils.progress import pprogress
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 PERCENTILE = 95
 
@@ -24,6 +25,11 @@ PERCENTILE = 95
 class LAPSolver(object):
 
     def __init__(self, tracker, verbose=False):
+
+        if not verbose:
+            log.disabled = True
+        else:
+            log.disabled = False
 
         self.tracker = tracker
         self.ndims = self.tracker.ndims
@@ -148,6 +154,11 @@ class LAPSolver(object):
 class CMSSolver(LAPSolver):
 
     def __init__(self, *args, **kwargs):
+
+        if not kwargs['verbose']:
+            log.disabled = True
+        else:
+            log.disabled = False
 
         super(CMSSolver, self).__init__(*args, **kwargs)
         self.window_gap = self.tracker.window_gap
