@@ -84,10 +84,15 @@ class LAPSolver(object):
 
         pos0 = np.asarray(pos0)
         pos1 = np.asarray(pos1)
+        if pos0.ndim == 1:
+            pos0 = np.atleast_2d(pos0).T
+        if pos1.ndim == 1:
+            pos1 = np.atleast_2d(pos1).T
         num_in, ndim = pos0.shape
         num_out, ndim = pos1.shape
-        if ndim not in (2, 3):
-            raise ValueError('''Only 2d and 3d data are supported''')
+        print(pos1.shape)
+        if ndim not in (1, 2, 3):
+            raise ValueError('''Only 1d, 2d and 3d data are supported''')
 
         lapmat = np.zeros((num_in + num_out,
                            num_in + num_out)) * np.nan
