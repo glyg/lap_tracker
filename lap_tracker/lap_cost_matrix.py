@@ -153,6 +153,44 @@ class LAPSolver(object):
 #     pos1[:, 1] = [1, 0, 2]
 #     return pos0, pos1
 
+    def show_lapmat(self, lapmat=None):
+        """
+        For debugging purpose
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+
+        if not lapmat:
+            m = self.lapmat
+        else:
+            m = lapmat
+
+        rec_shape = np.array(m.shape)
+
+        # Show matrice
+        cax = ax.imshow(m, interpolation='none', cmap='gray', extent=[0, rec_shape[0], 0, rec_shape[1]])
+        cbar = fig.colorbar(cax)
+
+        # Get nice grid
+        majorLocator = plt.MultipleLocator(rec_shape[0] / 2)
+        ax.xaxis.set_major_locator(majorLocator)
+        ax.yaxis.set_major_locator(majorLocator)
+        ax.grid(which='major', axis='both', linestyle='-', lw=3)
+        minorLocator = plt.MultipleLocator(1)
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.yaxis.set_minor_locator(minorLocator)
+        ax.grid(which='minor', axis='both', linestyle='--', lw=1)
+
+        ax.set_xlim(0, rec_shape[0])
+        ax.set_ylim(0, rec_shape[1])
+
+        # Display nan value
+        for p in np.argwhere(np.isnan(m)):
+            x = p[1] + 0.5
+            y = rec_shape[0] - 1 - p[0] + 0.5
+            ax.scatter(x, y, marker='x', s=1000, color='red', alpha=0.3)
+
 
 class CMSSolver(LAPSolver):
 
@@ -399,4 +437,3 @@ class CMSSolver(LAPSolver):
                                                           sm_stop:alt_sm_start]
             return red_lapmat
         return lapmat
-
