@@ -54,8 +54,9 @@ class LAPSolver(object):
             return None
 
         idxs_in, idxs_out, costs = self.get_lap_args()
-        in_links, out_links = lapjv(idxs_in, idxs_out, costs)
-        return in_links, out_links
+        self.in_links, self.out_links = lapjv(idxs_in, idxs_out, costs)
+
+        return self.in_links, self.out_links
 
     def get_costmat(self, pos0, pos1, delta_t=1):
 
@@ -178,16 +179,28 @@ class LAPSolver(object):
         num_out, ndim = self.pos1.shape
 
         # Show matrice
-        cax = ax.imshow(m, interpolation='none', cmap='gray', extent=[0, size, 0, size])
+        cax = ax.imshow(m, interpolation='none', cmap='gray',
+                        extent=[0, size, 0, size])
         cbar = fig.colorbar(cax)
 
         # Get nice grid
-        ax.axvline(x=num_out, ymin=0, ymax=size, linewidth=3, color='black')
-        ax.axhline(y=size - num_in, xmin=0, xmax=size, linewidth=3, color='black')
 
+        # Major axis
+        ax.axvline(x=num_out, ymin=0, ymax=size, linewidth=3, color='black')
+        ax.axhline(y=size - num_in, xmin=0, xmax=size, linewidth=3,
+                   color='black')
+
+        # Minor axis
         for i in range(1, size):
-            ax.axvline(x=i, ymin=0, ymax=size, linewidth=1, color='black', alpha=0.7)
-            ax.axhline(y=i, xmin=0, xmax=size, linewidth=1, color='black', alpha=0.7)
+            ax.axvline(x=i, ymin=0, ymax=size, linewidth=1, color='black',
+                       alpha=0.7)
+            ax.axhline(y=i, xmin=0, xmax=size, linewidth=1, color='black',
+                       alpha=0.7)
+
+        # Plot lapjv solutions
+        for idx_out, idx_in in enumerate(self.out_links[:self.pos1.shape[0]]):
+            ax.scatter(idx_out + 0.5, size - 1 - idx_in + 0.5, marker='o',
+                       s=1000, color='green', alpha=0.6)
 
         ax.set_xlim(0, size)
         ax.set_ylim(0, size)
