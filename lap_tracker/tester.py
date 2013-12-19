@@ -11,19 +11,20 @@ import pandas as pd
 from .lap_tracking import LAPTracker
 
 
-DEFAULT_PARAMS = {'n_part':5,
-                  'n_times':100,
-                  'noise':1e-8,
-                  'p_disapear':1e-8,
-                  'sampling':10,
-                  'max_disp':0.1,
-                  'window_gap':10,
-                  'gp_corr':'squared_exponential',
-                  'gp_regr':'quadratic',
-                  'gp_theta0':0.1}
+DEFAULT_PARAMS = {'n_part': 5,
+                  'n_times': 100,
+                  'noise': 1e-8,
+                  'p_disapear': 1e-8,
+                  'sampling': 10,
+                  'max_disp': 0.1,
+                  'window_gap': 10,
+                  'gp_corr': 'squared_exponential',
+                  'gp_regr': 'quadratic',
+                  'gp_theta0': 0.1}
+
 
 def generate_split(size, noise, split_time):
-    
+
     np.random.seed(0)
     ts = np.linspace(0.1, 1., size)
     x1 = ts + np.random.normal(0, noise, size)
@@ -38,20 +39,20 @@ def generate_split(size, noise, split_time):
     x2[:split_time] = np.nan
     y2[:split_time] = np.nan
     I1[:split_time] += I2[:split_time]
-    I2[:split_time] = np.nan   
-   
+    I2[:split_time] = np.nan
+
     xs = np.vstack((x1, x2)).T.flatten()
     ys = np.vstack((y1, y2)).T.flatten()
     Is = np.vstack((I1, I2)).T.flatten()
-    
+
     data = np.vstack((xs, ys, Is)).T
     t_stamp, label = np.mgrid[0:size, 0:2]
 
-    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l
                                        in zip(t_stamp.ravel(),
                                               label.ravel())],
                                       names=('t', 'label'))
-    
+
     t_split = pd.DataFrame(data, index=index, columns=('x', 'y', 'I'))
     t_split = t_split.dropna()
     t_split = LAPTracker(t_split)
@@ -59,6 +60,7 @@ def generate_split(size, noise, split_time):
     t_split.max_disp = 2. / size
 
     return t_split
+
 
 def generate_gap(size, noise, gap_start,
                  gap_stop, traj_shift=1.):
@@ -74,20 +76,19 @@ def generate_gap(size, noise, gap_start,
     I1 = np.random.normal(1, noise, size)
     I2 = np.random.normal(1, noise, size)
 
-    
     x2[gap_start: gap_stop] = np.nan
     y2[gap_start: gap_stop] = np.nan
-    I2[gap_start: gap_stop] = np.nan   
-    
+    I2[gap_start: gap_stop] = np.nan
+
     xs = np.vstack((x1, x2)).T.flatten()
     ys = np.vstack((y1, y2)).T.flatten()
     Is = np.vstack((I1, I2)).T.flatten()
-    
+
     data = np.vstack((xs, ys, Is)).T
-    
+
     t_stamp, label = np.mgrid[0:size, 0:2]
     label[gap_stop:, 1] = 2
-    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l
                                        in zip(t_stamp.ravel(),
                                               label.ravel())],
                                       names=('t', 'label'))
@@ -95,12 +96,13 @@ def generate_gap(size, noise, gap_start,
     t_gap = t_gap.dropna()
     t_gap = LAPTracker(t_gap)
     t_gap.ndims = 2
-    t_gap.dist_function = lambda x:x
+    t_gap.dist_function = lambda x: x
     t_gap.max_disp = 2. / size
     return t_gap
-    
+
+
 def generate_merge(size, noise, merge_time):
-    
+
     np.random.seed(0)
     ts = np.linspace(0.1, 1., size)
     x1 = ts + np.random.normal(0, noise, size)
@@ -115,16 +117,16 @@ def generate_merge(size, noise, merge_time):
     x2[: merge_time] = np.nan
     y2[: merge_time] = np.nan
     I1[: merge_time] += I2[: merge_time]
-    I2[: merge_time] = np.nan   
-   
+    I2[: merge_time] = np.nan
+
     xs = np.vstack((x1, x2)).T.flatten()
     ys = np.vstack((y1, y2)).T.flatten()
     Is = np.vstack((I1, I2)).T.flatten()
-    
+
     data = np.vstack((xs, ys, Is)).T
     data = data[::-1]
     t_stamp, label = np.mgrid[0:size, 0:2]
-    index = pd.MultiIndex.from_tuples([(t, l) for t, l 
+    index = pd.MultiIndex.from_tuples([(t, l) for t, l
                                        in zip(t_stamp.ravel(),
                                               label.ravel())],
                                       names=('t', 'label'))
@@ -134,7 +136,6 @@ def generate_merge(size, noise, merge_time):
     t_merge.ndims = 2
     t_merge.max_disp = 2. / size
     return t_merge
-
 
 
 def generate_merge_split(size, noise, merge_time):
@@ -166,7 +167,6 @@ def generate_merge_split(size, noise, merge_time):
     return t_merge_split
 
 
-
 def test_tracker(params=DEFAULT_PARAMS):
 
     n_part = params['n_part']
@@ -178,7 +178,7 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params=params)
-    test_track.dist_function = lambda x:x
+    test_track.dist_function = lambda x: x
 
     ## Straight 1
     test_track.get_track(predict=False)
@@ -214,7 +214,8 @@ def test_tracker(params=DEFAULT_PARAMS):
     print('Number of individual trajectories: %i'
           % test_track.labels.shape[0])
     return scores, test_track
-    
+
+
 def make_data(n_part=5, n_times=100, noise=1e-10,
               p_disapear=1e-10, sampling=10):
     '''Creates a DataFrame containing simulated trajectories
@@ -265,6 +266,7 @@ def make_data(n_part=5, n_times=100, noise=1e-10,
     teststore['raw'] = raw
     teststore.close()
     return raw, teststore
+
 
 def shuffle(df):
     '''
