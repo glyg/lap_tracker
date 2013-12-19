@@ -90,7 +90,6 @@ class LAPSolver(object):
             pos1 = np.atleast_2d(pos1).T
         num_in, ndim = pos0.shape
         num_out, ndim = pos1.shape
-
         if ndim not in (1, 2, 3):
             raise ValueError('''Only 1d, 2d and 3d data are supported''')
 
@@ -108,16 +107,15 @@ class LAPSolver(object):
         new = m_costmat.max()
         if self.guessed:
             log.info('Getting first value for max cost')
-            log.info('Guessed value was: %.3f' % self.max_cost)
+            log.info('Guessed value was: %.4f' % self.max_cost)
             self.max_cost = new
             self.guessed = False
-            log.info('New value is %.3f' % self.max_cost)
+            log.info('New value for max cost: %.4f' % self.max_cost)
 
         elif np.isfinite(new):
             self.max_cost = max(new, self.max_cost)
             if self.max_cost == new:
-                log.info('New value for max cost: %.4f'
-                         % (self.max_cost))
+                log.info('New value for max cost: %.4f' % (self.max_cost))
 
         birthcost = deathcost = self.max_cost * 1.05
         lapmat[num_in:, :num_out] = self.get_birthmat(num_out, birthcost)
