@@ -90,7 +90,7 @@ class LAPSolver(object):
             pos1 = np.atleast_2d(pos1).T
         num_in, ndim = pos0.shape
         num_out, ndim = pos1.shape
-        print(pos1.shape)
+
         if ndim not in (1, 2, 3):
             raise ValueError('''Only 1d, 2d and 3d data are supported''')
 
