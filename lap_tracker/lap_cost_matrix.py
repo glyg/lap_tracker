@@ -33,13 +33,13 @@ class LAPSolver(object):
 
         self.tracker = tracker
         self.ndims = self.tracker.ndims
-        self.dist_function = self.tracker.dist_function
+        self.cost_function = self.tracker.cost_function
         self.verbose = verbose
         self.distance_metric = self.tracker.distance_metric
         self.distance_parameters = self.tracker.distance_parameters
 
         ## Initial guess
-        self.max_cost = self.dist_function(self.tracker.max_disp)
+        self.max_cost = self.cost_function(self.tracker.max_disp)
         self.guessed = True
 
     @property
@@ -65,8 +65,8 @@ class LAPSolver(object):
         distances /= delta_t
         filtered_dist = distances.copy()
         filtered_dist[distances > self.max_disp] = np.nan
-        # self.fillvalue = self.dist_function(p90)
-        costmat = self.dist_function(filtered_dist)
+        # self.fillvalue = self.cost_function(p90)
+        costmat = self.cost_function(filtered_dist)
 
         return costmat
 
@@ -246,7 +246,7 @@ class CMSSolver(LAPSolver):
                 dist01 = np.sqrt(((last0 - first1)**2).sum())
                 if (dist01 / delta_t) > self.max_disp:
                     continue
-                gc_mat[i, j] = self.dist_function(dist01)
+                gc_mat[i, j] = self.cost_function(dist01)
 
         pprogress(-1)
         return gc_mat
@@ -281,7 +281,7 @@ class CMSSolver(LAPSolver):
                 rho01 = (intensities1.loc[split_time]
                          / (intensities1.loc[next_time]
                             + intensities0.loc[first_time]))
-                cost01 = self.dist_function(dist01)
+                cost01 = self.cost_function(dist01)
                 weight = cost01 * rho01 if rho01 > 1. else cost01 * rho01**-2
                 split_dic[i, (j, split_time)] =  weight
 
@@ -318,7 +318,7 @@ class CMSSolver(LAPSolver):
                 rho01 = (intensities1.loc[merge_time]
                          / (intensities1.loc[prev_time]
                             + intensities0.loc[last_time]))
-                cost01 = self.dist_function(dist01)
+                cost01 = self.cost_function(dist01)
                 weight = cost01 * rho01 if rho01 > 1. else cost01 * rho01**-2
                 merge_dic[i, (j, merge_time)] =  weight
         pprogress(-1)
@@ -341,7 +341,7 @@ class CMSSolver(LAPSolver):
                               for segment in self.segments])
         global_mean = avg_disps[np.isfinite(avg_disps)].mean()
         avg_disps[np.isnan(avg_disps)] = global_mean
-        avg_disps = self.dist_function(avg_disps)
+        avg_disps = self.cost_function(avg_disps)
 
         for n, seed in enumerate(self.seeds):
             seg_index = seed[0]

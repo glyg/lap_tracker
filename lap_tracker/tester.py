@@ -96,7 +96,7 @@ def generate_gap(size, noise, gap_start,
     t_gap = t_gap.dropna()
     t_gap = LAPTracker(t_gap)
     t_gap.ndims = 2
-    t_gap.dist_function = lambda x: x
+    t_gap.cost_function = lambda x: x
     t_gap.max_disp = 2. / size
     return t_gap
 
@@ -178,7 +178,7 @@ def test_tracker(params=DEFAULT_PARAMS):
                                 p_disapear, sampling)
 
     test_track = LAPTracker(data, teststore, params=params)
-    test_track.dist_function = lambda x: x
+    test_track.cost_function = lambda x: x
 
     ## Straight 1
     test_track.get_track(predict=False)

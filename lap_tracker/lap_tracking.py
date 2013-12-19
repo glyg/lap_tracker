@@ -37,7 +37,7 @@ class LAPTracker(object):
     def __init__(self, track_df=None,
                  hdfstore=None,
                  coords=['x', 'y', 'z'],
-                 dist_function=np.square,
+                 cost_function=np.square,
                  params=DEFAULTS,
                  verbose=True):
 
@@ -55,7 +55,7 @@ class LAPTracker(object):
             self.track.index.names = ['t', 'label']
         self.store = hdfstore
         self.load_parameters(params)
-        self.dist_function = dist_function
+        self.cost_function = cost_function
         self.pos_solver = LAPSolver(self, verbose=self.verbose)
 
     def load_parameters(self, params):
