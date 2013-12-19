@@ -35,6 +35,9 @@ class LAPSolver(object):
         self.ndims = self.tracker.ndims
         self.dist_function = self.tracker.dist_function
         self.verbose = verbose
+        self.distance_metric = self.tracker.distance_metric
+        self.distance_parameters = self.tracker.distance_parameters
+
         ## Initial guess
         self.max_cost = self.dist_function(self.tracker.max_disp)
         self.guessed = True
@@ -56,7 +59,10 @@ class LAPSolver(object):
 
     def get_costmat(self, pos0, pos1, delta_t=1):
 
-        distances = cdist(pos0, pos1) / delta_t
+        distances = cdist(pos0, pos1,
+                          metric=self.distance_metric,
+                          **self.distance_parameters)
+        distances /= delta_t
         filtered_dist = distances.copy()
         filtered_dist[distances > self.max_disp] = np.nan
         # self.fillvalue = self.dist_function(p90)

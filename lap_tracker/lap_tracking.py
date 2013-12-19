@@ -27,7 +27,9 @@ DEFAULTS = {'max_disp': 0.1,
             'ndims': 3,
             'gp_corr': 'squared_exponential',
             'gp_regr': 'quadratic',
-            'gp_theta0': 0.1}
+            'gp_theta0': 0.1,
+            'distance_metric': 'euclidean',
+            'distance_parameters': {}}
 
 
 class LAPTracker(object):
