@@ -82,20 +82,20 @@ class LAPSolver(object):
 
     def get_lapmat(self, pos0, pos1, delta_t=1):
 
-        pos0 = np.asarray(pos0)
-        pos1 = np.asarray(pos1)
-        if pos0.ndim == 1:
-            pos0 = np.atleast_2d(pos0).T
-        if pos1.ndim == 1:
-            pos1 = np.atleast_2d(pos1).T
-        num_in, ndim = pos0.shape
-        num_out, ndim = pos1.shape
+        self.pos0 = np.asarray(pos0)
+        self.pos1 = np.asarray(pos1)
+        if self.pos0.ndim == 1:
+            self.pos0 = np.atleast_2d(self.pos0).T
+        if self.pos1.ndim == 1:
+            self.pos1 = np.atleast_2d(self.pos1).T
+        num_in, ndim = self.pos0.shape
+        num_out, ndim = self.pos1.shape
         if ndim not in (1, 2, 3):
             raise ValueError('''Only 1d, 2d and 3d data are supported''')
 
         lapmat = np.zeros((num_in + num_out,
                            num_in + num_out)) * np.nan
-        self.costmat = self.get_costmat(pos0, pos1, delta_t)
+        self.costmat = self.get_costmat(self.pos0, self.pos1, delta_t)
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
 
@@ -155,7 +155,7 @@ class LAPSolver(object):
 
     def show_lapmat(self, lapmat=None):
         """
-        For debugging purpose
+        Show current lap matrice for debugging purpose only
         """
         import matplotlib.pyplot as plt
 
@@ -167,28 +167,29 @@ class LAPSolver(object):
             m = lapmat
 
         rec_shape = np.array(m.shape)
+        size = rec_shape[0]
+        num_in, ndim = self.pos0.shape
+        num_out, ndim = self.pos1.shape
 
         # Show matrice
-        cax = ax.imshow(m, interpolation='none', cmap='gray', extent=[0, rec_shape[0], 0, rec_shape[1]])
+        cax = ax.imshow(m, interpolation='none', cmap='gray', extent=[0, size, 0, size])
         cbar = fig.colorbar(cax)
 
         # Get nice grid
-        majorLocator = plt.MultipleLocator(rec_shape[0] / 2)
-        ax.xaxis.set_major_locator(majorLocator)
-        ax.yaxis.set_major_locator(majorLocator)
-        ax.grid(which='major', axis='both', linestyle='-', lw=3)
-        minorLocator = plt.MultipleLocator(1)
-        ax.xaxis.set_minor_locator(minorLocator)
-        ax.yaxis.set_minor_locator(minorLocator)
-        ax.grid(which='minor', axis='both', linestyle='--', lw=1)
+        ax.axvline(x=num_out, ymin=0, ymax=size, linewidth=3, color='black')
+        ax.axhline(y=size - num_in, xmin=0, xmax=size, linewidth=3, color='black')
 
-        ax.set_xlim(0, rec_shape[0])
-        ax.set_ylim(0, rec_shape[1])
+        for i in range(1, size):
+            ax.axvline(x=i, ymin=0, ymax=size, linewidth=1, color='black', alpha=0.7)
+            ax.axhline(y=i, xmin=0, xmax=size, linewidth=1, color='black', alpha=0.7)
+
+        ax.set_xlim(0, size)
+        ax.set_ylim(0, size)
 
         # Display nan value
         for p in np.argwhere(np.isnan(m)):
             x = p[1] + 0.5
-            y = rec_shape[0] - 1 - p[0] + 0.5
+            y = size - 1 - p[0] + 0.5
             ax.scatter(x, y, marker='x', s=1000, color='red', alpha=0.3)
 
 
