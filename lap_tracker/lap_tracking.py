@@ -24,7 +24,6 @@ log = logging.getLogger(__name__)
 DEFAULTS = {'max_disp': 0.1,
             'window_gap': 10,
             'sigma': 1.,
-            'ndims': 3,
             'gp_corr': 'squared_exponential',
             'gp_regr': 'quadratic',
             'gp_theta0': 0.1,
