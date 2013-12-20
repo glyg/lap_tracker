@@ -32,7 +32,7 @@ class LAPSolver(object):
             log.disabled = False
 
         self.tracker = tracker
-        self.ndims = self.tracker.ndims
+        self.ndims = len(self.tracker.coordinates)
         self.cost_function = self.tracker.cost_function
         self.verbose = verbose
         self.distance_metric = self.tracker.distance_metric
