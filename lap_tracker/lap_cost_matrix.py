@@ -224,12 +224,8 @@ class CMSSolver(LAPSolver):
         super(CMSSolver, self).__init__(*args, **kwargs)
         self.window_gap = self.tracker.window_gap
 
-        if self.ndims == 2:
-            self.segments = [segment[['x', 'y']]
-                             for segment in self.tracker.segments()]
-        elif self.ndims == 3:
-            self.segments = [segment[['x', 'y', 'z']]
-                             for segment in self.tracker.segments()]
+        self.segments = [segment[self.tracker.coordinates]
+                         for segment in self.tracker.segments()]
         try:
             self.intensities = [segment['I']
                                 for segment in self.tracker.segments()]
