@@ -10,7 +10,6 @@ import logging
 import numpy as np
 
 import numpy.ma as ma
-from scipy.spatial.distance import cdist
 import warnings
 
 from .lapjv import lapjv
@@ -22,24 +21,85 @@ log.setLevel(logging.DEBUG)
 PERCENTILE = 95
 
 
+def cost_matrix(pos0, pos1,
+                 delta_t=1,
+                 max_disp=1,
+                 distance_metric="euclidean",
+                 distance_parameters={},
+                 cost_function=None):
+    """
+    Default cost matrix computation :
+    1. matrix distance_metric
+    2. maximum velocity filter
+    3 preprocessing with cost_function
+    """
+
+    from scipy.spatial.distance import cdist
+
+    if not cost_function:
+        cost_function = lambda x: x
+
+    distances = cdist(pos0, pos1,
+                      metric=distance_metric,
+                      **distance_parameters)
+    distances /= delta_t
+    filtered_dist = distances.copy()
+    filtered_dist[distances > max_disp] = np.nan
+
+    # self.fillvalue = self.cost_function(p90)
+    costmat = cost_function(filtered_dist)
+    return costmat
+
+
 class LAPSolver(object):
 
     def __init__(self, tracker, verbose=False):
+        """
+        """
 
-        if not verbose:
+        self.verbose = verbose
+        if not self.verbose:
             log.disabled = True
         else:
             log.disabled = False
 
         self.tracker = tracker
-        self.ndims = len(self.tracker.coordinates)
+        self.ndims = self.tracker.ndims
+
+        # Cost matrix parameters
         self.cost_function = self.tracker.cost_function
-        self.verbose = verbose
         self.distance_metric = self.tracker.distance_metric
         self.distance_parameters = self.tracker.distance_parameters
 
-        ## Initial guess
-        self.max_cost = self.cost_function(self.tracker.max_disp)
+        if self.tracker.cost_matrix_function:
+
+            log.info("Custom cost matrix function defined")
+            self.get_cost_matrix = self.tracker.cost_matrix_function
+            self.cost_matrix_parameters = {}
+
+            if self.tracker.max_cost:
+                self.max_cost = self.tracker.max_cost
+            else:
+                self.max_cost = None
+                log.critical("Please define max_cost value or tracking will fail")
+
+        else:
+
+            log.info("Default cost matrix function will be used")
+            self.get_cost_matrix = cost_matrix
+            self.cost_matrix_parameters = dict(max_disp=self.max_disp,
+                                                distance_metric=self.distance_metric,
+                                                distance_parameters=self.distance_parameters,
+                                                cost_function=self.cost_function)
+
+            if self.cost_function and self.max_disp:
+                self.max_cost = self.cost_function(self.max_disp)
+            else:
+                self.max_cost = None
+                log.critical("cost_function and max_disp are needed to compute"
+                             " max_cost value")
+                log.critical("Tracking will fail")
+
         self.guessed = True
 
     @property
@@ -57,19 +117,6 @@ class LAPSolver(object):
         self.in_links, self.out_links = lapjv(idxs_in, idxs_out, costs)
 
         return self.in_links, self.out_links
-
-    def get_costmat(self, pos0, pos1, delta_t=1):
-
-        distances = cdist(pos0, pos1,
-                          metric=self.distance_metric,
-                          **self.distance_parameters)
-        distances /= delta_t
-        filtered_dist = distances.copy()
-        filtered_dist[distances > self.max_disp] = np.nan
-        # self.fillvalue = self.cost_function(p90)
-        costmat = self.cost_function(filtered_dist)
-
-        return costmat
 
     def get_lap_args(self):
 
@@ -102,7 +149,10 @@ class LAPSolver(object):
 
         lapmat = np.zeros((num_in + num_out,
                            num_in + num_out)) * np.nan
-        self.costmat = self.get_costmat(self.pos0, self.pos1, delta_t)
+
+        self.costmat = self.get_cost_matrix(self.pos0, self.pos1, delta_t,
+                                             **self.cost_matrix_parameters)
+
         m_costmat = ma.masked_invalid(self.costmat)
         lapmat[:num_in, :num_out] = self.costmat
 
@@ -162,7 +212,7 @@ class LAPSolver(object):
 
     def show_lapmat(self, lapmat=None):
         """
-        Show current lap matrice for debugging purpose only
+        Show current lap matrix for debugging purpose only
         """
         import matplotlib.pyplot as plt
 
@@ -178,7 +228,7 @@ class LAPSolver(object):
         num_in, ndim = self.pos0.shape
         num_out, ndim = self.pos1.shape
 
-        # Show matrice
+        # Show matrix
         cax = ax.imshow(m, interpolation='none', cmap='gray',
                         extent=[0, size, 0, size])
         cbar = fig.colorbar(cax)
