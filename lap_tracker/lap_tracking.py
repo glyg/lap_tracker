@@ -21,12 +21,18 @@ from .utils.progress import pprogress
 
 log = logging.getLogger(__name__)
 
-DEFAULTS = {'max_disp': 0.1,
-            'window_gap': 10,
+            # Global parameters
+DEFAULTS = {'window_gap': 10,
             'sigma': 1.,
+            'ndims': 3,
+
+            # Gap, close and merge parameters
             'gp_corr': 'squared_exponential',
             'gp_regr': 'quadratic',
             'gp_theta0': 0.1,
+
+            # Default cost matrix parameters
+            'max_disp': 0.1,
             'distance_metric': 'euclidean',
             'distance_parameters': {}}
 
@@ -36,7 +42,9 @@ class LAPTracker(object):
     def __init__(self, track_df=None,
                  hdfstore=None,
                  coords=['x', 'y', 'z'],
-                 cost_function=np.square,
+                 cost_function=None,
+                 max_cost=None,
+                 cost_matrix_function=None,
                  params=DEFAULTS,
                  verbose=True):
 
@@ -52,9 +60,14 @@ class LAPTracker(object):
             self.track.index.set_names(['t', 'label'], inplace=True)
         except AttributeError:
             self.track.index.names = ['t', 'label']
+
         self.store = hdfstore
         self.load_parameters(params)
+
         self.cost_function = cost_function
+        self.max_cost = max_cost
+        self.cost_matrix_function = cost_matrix_function
+
         self.pos_solver = LAPSolver(self, verbose=self.verbose)
 
     def load_parameters(self, params):
@@ -255,7 +268,7 @@ class LAPTracker(object):
         results = self.pos_solver.solve(pos0, pos1, delta_t)
 
         if not results:
-            log.warning("LAP matrice is invalid for t = "
+            log.warning("LAP matrix is invalid for t = "
                         "%d and t = %d (check max_disp value)" % (t0, t1))
             return None
 
