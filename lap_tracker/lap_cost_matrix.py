@@ -22,16 +22,16 @@ PERCENTILE = 95
 
 
 def cost_matrix(pos0, pos1,
-                 delta_t=1,
-                 max_disp=1,
-                 distance_metric="euclidean",
-                 distance_parameters={},
-                 cost_function=None):
+                delta_t=1,
+                max_disp=1,
+                distance_metric="euclidean",
+                distance_parameters={},
+                cost_function=None):
     """
     Default cost matrix computation :
     1. matrix distance_metric
     2. maximum velocity filter
-    3 preprocessing with cost_function
+    3. preprocessing with cost_function
     """
 
     from scipy.spatial.distance import cdist

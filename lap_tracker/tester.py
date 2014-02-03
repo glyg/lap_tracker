@@ -23,9 +23,10 @@ DEFAULT_PARAMS = {'n_part': 5,
                   'gp_theta0': 0.1}
 
 
-def generate_split(size, noise, split_time):
+def generate_split(size, noise, split_time, seed=0):
 
-    np.random.seed(0)
+    if seed:
+        np.random.seed(seed)
     ts = np.linspace(0.1, 1., size)
     x1 = ts + np.random.normal(0, noise, size)
     x2 = np.sin(ts) + np.random.normal(0, noise, size)
@@ -63,9 +64,10 @@ def generate_split(size, noise, split_time):
 
 
 def generate_gap(size, noise, gap_start,
-                 gap_stop, traj_shift=1.):
+                 gap_stop, traj_shift=1., seed=0):
 
-    np.random.seed(0)
+    if seed:
+        np.random.seed(seed)
     ts = np.linspace(0.1, 1., size)
     x1 = np.cos(ts) + np.random.normal(0, noise, size) + traj_shift
     x2 = np.sin(ts) + np.random.normal(0, noise, size)
@@ -101,9 +103,10 @@ def generate_gap(size, noise, gap_start,
     return t_gap
 
 
-def generate_merge(size, noise, merge_time):
+def generate_merge(size, noise, merge_time, seed=0):
 
-    np.random.seed(0)
+    if seed:
+        np.random.seed(seed)
     ts = np.linspace(0.1, 1., size)
     x1 = ts + np.random.normal(0, noise, size)
     x2 = np.sin(ts) + np.random.normal(0, noise, size)
@@ -138,10 +141,10 @@ def generate_merge(size, noise, merge_time):
     return t_merge
 
 
-def generate_merge_split(size, noise, merge_time):
+def generate_merge_split(size, noise, merge_time, seed=0):
 
-    t_split0 = generate_split(size, noise, merge_time)
-    t_merge_split = generate_merge(size, noise, merge_time)
+    t_split0 = generate_split(size, noise, merge_time, seed)
+    t_merge_split = generate_merge(size, noise, merge_time, seed)
 
     t = t_merge_split.track.index.get_level_values('t')
     t += t_split0.track.index.get_level_values('t')[-1] + 1
@@ -217,7 +220,7 @@ def test_tracker(params=DEFAULT_PARAMS):
 
 
 def make_data(n_part=5, n_times=100, noise=1e-10,
-              p_disapear=1e-10, sampling=10):
+              p_disapear=1e-10, sampling=10, seed=0):
     '''Creates a DataFrame containing simulated trajectories
 
     Parameters:
@@ -237,7 +240,8 @@ def make_data(n_part=5, n_times=100, noise=1e-10,
         before shuffeling
     testore: and pd.HDFStore object where `raw` is stored
     '''
-    np.random.seed(42)
+    if seed:
+        np.random.seed(seed)
     times = np.arange(n_times)
     phases = np.random.random(n_part) * 2 * np.pi
     initial_positions = np.random.random((n_part, 3))
