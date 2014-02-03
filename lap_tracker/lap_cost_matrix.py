@@ -263,8 +263,12 @@ class LAPSolver(object):
 
 
 class CMSSolver(LAPSolver):
+    """
+    """
 
     def __init__(self, *args, **kwargs):
+        """
+        """
 
         if not kwargs['verbose']:
             log.disabled = True
@@ -307,7 +311,8 @@ class CMSSolver(LAPSolver):
                     continue
                 gc_mat[i, j] = self.cost_function(dist01)
 
-        pprogress(-1)
+        if self.verbose:
+            pprogress(-1)
         return gc_mat
 
     def get_splitting(self):
@@ -344,7 +349,8 @@ class CMSSolver(LAPSolver):
                 weight = cost01 * rho01 if rho01 > 1. else cost01 * rho01**-2
                 split_dic[i, (j, split_time)] =  weight
 
-        pprogress(-1)
+        if self.verbose:
+            pprogress(-1)
         return split_dic
 
     def get_merging(self):
@@ -380,7 +386,9 @@ class CMSSolver(LAPSolver):
                 cost01 = self.cost_function(dist01)
                 weight = cost01 * rho01 if rho01 > 1. else cost01 * rho01**-2
                 merge_dic[i, (j, merge_time)] =  weight
-        pprogress(-1)
+
+        if self.verbose:
+            pprogress(-1)
         return merge_dic
 
     def get_cms_seeds(self):
