@@ -88,9 +88,9 @@ class LAPSolver(object):
             log.info("Default cost matrix function will be used")
             self.get_cost_matrix = cost_matrix
             self.cost_matrix_parameters = dict(max_disp=self.max_disp,
-                                                distance_metric=self.distance_metric,
-                                                distance_parameters=self.distance_parameters,
-                                                cost_function=self.cost_function)
+                                               distance_metric=self.distance_metric,
+                                               distance_parameters=self.distance_parameters,
+                                               cost_function=self.cost_function)
 
             if self.cost_function and self.max_disp:
                 self.max_cost = self.cost_function(self.max_disp)
@@ -260,6 +260,16 @@ class LAPSolver(object):
             x = p[1] + 0.5
             y = size - 1 - p[0] + 0.5
             ax.scatter(x, y, marker='x', s=1000, color='red', alpha=0.3)
+
+        ax.grid(False)
+
+        ax.set_xticks(np.arange(0.5, size + 0.5))
+        ax.set_yticks(np.arange(0.5, size + 0.5))
+
+        ax.set_xticklabels(np.hstack([np.arange(0, num_out), np.arange(0, num_in)]))
+        ax.set_yticklabels(np.hstack([np.arange(0, num_in), np.arange(0, num_out)])[::-1])
+
+        return fig
 
 
 class CMSSolver(LAPSolver):
