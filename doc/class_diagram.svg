@@ -187,6 +187,20 @@
          style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-linecap:square;stroke-linejoin:round"
          transform="scale(0.8,0.8)" />
     </marker>
+    <marker
+       inkscape:stockid="DiamondL"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="DiamondL-1"
+       style="stroke-linecap:square;stroke-linejoin:round;overflow:visible">
+      <path
+         id="path3897-7"
+         d="M 0,-7.0710768 -7.0710894,0 0,7.0710589 7.0710462,0 0,-7.0710768 z"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-linecap:square;stroke-linejoin:round"
+         transform="scale(0.8,0.8)"
+         inkscape:connector-curvature="0" />
+    </marker>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -196,8 +210,8 @@
      inkscape:pageopacity="1"
      inkscape:pageshadow="2"
      inkscape:zoom="0.69999999"
-     inkscape:cx="782.14407"
-     inkscape:cy="138.2908"
+     inkscape:cx="753.57264"
+     inkscape:cy="340.43366"
      inkscape:document-units="px"
      inkscape:current-layer="svg2"
      showgrid="false"
@@ -224,7 +238,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -524,7 +538,7 @@
      inkscape:connection-start-point="d4" />
   <g
      id="g5407"
-     transform="translate(-188.57343,-175.06479)"
+     transform="translate(-232.85914,-113.63622)"
      style="stroke-linecap:square;stroke-linejoin:round">
     <g
        id="g5397"
@@ -556,11 +570,13 @@
      inkscape:connector-curvature="0"
      inkscape:connector-type="polyline"
      id="path5405"
-     d="m 352.82178,155.51678 77.05387,117.54677"
+     d="m 332.9344,155.51678 69.246,183.00979"
      style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#TriangleOutL);display:inline"
      sodipodi:nodetypes="cc"
      inkscape:connection-start="#g5345"
-     inkscape:connection-start-point="d4" />
+     inkscape:connection-start-point="d4"
+     inkscape:connection-end="#g5407"
+     inkscape:connection-end-point="d4" />
   <g
      id="g5445"
      transform="translate(120.18662,-305.36938)"
@@ -587,16 +603,6 @@
          x="736.49554"
          y="952.82025">Solver</tspan></text>
   </g>
-  <path
-     style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#DiamondL)"
-     d="m 380.7705,83.818357 515.62116,0.412349"
-     id="path5450"
-     inkscape:connector-type="polyline"
-     inkscape:connector-curvature="0"
-     inkscape:connection-start="#g5345"
-     inkscape:connection-start-point="d4"
-     inkscape:connection-end="#rect2985"
-     inkscape:connection-end-point="d4" />
   <path
      style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#DiamondL);display:inline"
      d="m 859.51269,282.52331 27.08583,334.08021"
@@ -772,4 +778,23 @@
      inkscape:connection-end-point="d4"
      inkscape:connection-start="#g5445"
      inkscape:connection-start-point="d4" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#DiamondL);display:inline"
+     d="M 377.93244,85.805342 866.43274,616.60352"
+     id="path5450-3"
+     inkscape:connector-type="polyline"
+     inkscape:connector-curvature="0"
+     inkscape:connection-end="#g5445"
+     inkscape:connection-end-point="d4" />
+  <text
+     xml:space="preserve"
+     style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+     x="41.428577"
+     y="703.36053"
+     id="text3118"
+     sodipodi:linespacing="100%"><tspan
+       sodipodi:role="line"
+       id="tspan3120"
+       x="41.428577"
+       y="703.36053">Find another name to replace LAPTracker</tspan></text>
 </svg>
