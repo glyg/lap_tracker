@@ -94,18 +94,17 @@ class LAPSolver(object):
         ## maximal cost of all previous links
         new = m_costmat.max()
         if self.guessed:
-            print('Getting first value for max cost \n'
-                  'Guessed value was: %.3f' % self.max_cost)
+            # print('Getting first value for max cost \n'
+            #       'Guessed value was: %.3f' % self.max_cost)
             self.max_cost = new
             self.guessed = False
-            print('New value is %.3f' % self.max_cost)
+            #print('New value is %.3f' % self.max_cost)
 
         elif np.isfinite(new):
             self.max_cost = max(new, self.max_cost)
-            if self.max_cost == new:
-                print('New value for max cost: %.4f'
-                      % (self.max_cost))
-
+            # if self.max_cost == new:
+            #     print('New value for max cost: %.4f'
+            #           % (self.max_cost))
         birthcost = deathcost = self.max_cost * 1.05
         lapmat[num_in:, :num_out] = self.get_birthmat(num_out, birthcost)
         lapmat[:num_in, num_out:] = self.get_deathmat(num_in, deathcost)
@@ -183,7 +182,7 @@ class CMSSolver(LAPSolver):
                     continue
                 first1 = segment1.iloc[0]
                 dist01 = np.sqrt(((last0 - first1)**2).sum())
-                if (dist01 / delta_t) > self.max_disp:
+                if dist01 > self.max_disp:
                     continue
                 gc_mat[i, j] = self.dist_function(dist01)
 
@@ -299,9 +298,9 @@ class CMSSolver(LAPSolver):
                     split_factor = i0 / i1
                     
             alt_merge_mat[n, n] = (avg_disps[seg_index]
-                                   * merge_factor)
+                                   * merge_factor) * 10.
             alt_split_mat[n, n] = (avg_disps[seg_index]
-                                   * split_factor)
+                                   * split_factor) * 10.
         return alt_merge_mat, alt_split_mat
 
     def get_lapmat(self, gap_close_only=False,
@@ -343,7 +342,7 @@ class CMSSolver(LAPSolver):
         size = (n_segments + n_seeds) * 2
         lapmat = np.zeros((size, size)) * np.nan
         lapmat[:n_segments, :n_segments] = self.gc_mat
-        alt_sm_start = size  - n_seeds
+        alt_sm_start = size - n_seeds
         
         if not gap_close_only:
             lapmat[:n_segments, sm_start:sm_stop] = self.merge_mat

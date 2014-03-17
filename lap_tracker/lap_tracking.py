@@ -126,7 +126,9 @@ class LAPTracker(object):
             self.store.close()
         except AttributeError:
             warnings.warn('''No store has been provided, can't save''')
-    
+        finally:
+            self.store.close()
+            
     def reverse_track(self):
 
         self.track['rev_times'] = self.track.index.get_level_values(0)
@@ -296,6 +298,7 @@ class LAPTracker(object):
             segment = self.get_segment(lbl)
             if segment.shape[0] < min_length:
                 self.track = self.track.drop([lbl,], level=1)
+        self.track = relabel_fromzero(self.track, level='label')
 
     def get_segment(self, lbl):
         return self.track.xs(lbl, level=1)
@@ -399,7 +402,7 @@ class LAPTracker(object):
     @property
     def label_colors(self):
         '''dictionary with labels as key and a single RGBA
-        quadruplets for each label
+        quadruplet for each label
         '''
         return {label: tuple(self.colors.xs(label, level='label').iloc[0].values)
                 for label in self.labels}
