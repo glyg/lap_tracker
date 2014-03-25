@@ -410,7 +410,6 @@ class LAPTracker(object):
     def do_pca(self, df=None, ndims=3,
                coords=['x', 'y', 'z'], suffix='_pca'):
 
-        import matplotlib.pyplot as plt
 
         if not df:
             df = self.track
@@ -431,6 +430,7 @@ class LAPTracker(object):
         Returns a DataFrame indexed like `self.track` with a
         color for each unique label
         '''
+        import matplotlib.pyplot as plt
         clrs = self.track.index.get_level_values(
             'label').values.astype(np.float)
         clrs /= clrs.max()
